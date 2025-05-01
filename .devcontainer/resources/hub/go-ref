@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# go.mod がない場合はエラー
+modfile=$(go list -json -m | jq -r '. | select(.GoMod) | .GoMod' 2>/dev/null)
+if [ -z "$modfile" ]; then
+    echo "out of go module directory." >&2
+    exit 1
+fi
+
+# Main以外のモジュールを取得
+refs=$(\
+    go list -deps -json . \
+    | jq -r '. | select(.Module | has("Path") and ((has("Main") | not) or (.Main == false))) | .Module.Path' \
+    | sort -u
+)
+
+# フィルターが指定されている場合は単純一致でフィルタリング
+filter="${1}"
+if [ -n "$filter" ]; then
+    refs=$(echo "$refs" | grep -E "$filter")
+fi
+
+echo "$refs"
