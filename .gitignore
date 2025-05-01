@@ -23,3 +23,9 @@ go.work.sum
 
 # env file
 .env
+
+.devcontainer/resources/ignores/*
+!.devcontainer/resources/ignores/.git-keep
+.devcontainer/tmp/**
+!.devcontainer/tmp/.git-keep
+.devcontainer/commands/postCreateCommand.local.sh
