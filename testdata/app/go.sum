@@ -4,3 +4,5 @@ github.com/meian/go-rev-callgraph/testdata/foo v0.0.0-20250427081040-1b56eebcb9f
 github.com/meian/go-rev-callgraph/testdata/foo v0.0.0-20250427081040-1b56eebcb9ff/go.mod h1:4jP5A0PWKhrXfaw53Awg/BtFsH3Akb/iRVFZPdYps/Q=
 github.com/meian/go-rev-callgraph/testdata/qux v0.0.0-20250427081430-b35a2cf4aec9 h1:Nbd+t6MpkBSG6sW33qhsxKZEkEPYvD7PlbW/EbmNCW4=
 github.com/meian/go-rev-callgraph/testdata/qux v0.0.0-20250427081430-b35a2cf4aec9/go.mod h1:5qtFTuGv93EpF9zTm+QvH2ezsIsO4ioMmCCCkNMtUfA=
+github.com/meian/go-rev-callgraph/testdata/qux v0.0.0-20250501155140-0b00b296e431 h1:ridGXI6uIfzbS6eL1i77Tqa+KuVOji+66ZdrUiF9c7s=
+github.com/meian/go-rev-callgraph/testdata/qux v0.0.0-20250501155140-0b00b296e431/go.mod h1:5qtFTuGv93EpF9zTm+QvH2ezsIsO4ioMmCCCkNMtUfA=
