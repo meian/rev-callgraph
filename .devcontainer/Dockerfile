@@ -25,7 +25,7 @@ RUN go install github.com/cweill/gotests/gotests@v1.6.0
 RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.1
 
 # devcontainerのイメージ
-FROM mcr.microsoft.com/devcontainers/go:1.23-bookworm
+FROM mcr.microsoft.com/devcontainers/go:1.24-bookworm
 
 ARG USERNAME
 
