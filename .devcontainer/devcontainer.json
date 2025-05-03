@@ -8,6 +8,10 @@
 			"USERNAME": "vscode"
 		}
 	},
+	"runArgs": [
+		"--env-file",
+		".devcontainer/.env.devcontainer"
+	],
 	"containerEnv": {},
 	"initializeCommand": "./.devcontainer/commands/initializeCommand.sh",
 	"postCreateCommand": "./.devcontainer/commands/postCreateCommand.sh vscode",
@@ -17,5 +21,8 @@
 	],
 	"workspaceMount": "source=${localWorkspaceFolder},target=/rev-callgraph,type=bind,consistency=cached",
 	"workspaceFolder": "/rev-callgraph",
-	"remoteUser": "vscode"
+	"remoteUser": "vscode",
+	"features": {
+		"ghcr.io/devcontainers/features/github-cli:1": {}
+	}
 }
