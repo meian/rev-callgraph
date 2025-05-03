@@ -1,8 +1,12 @@
 github.com/meian/rev-callgraph/testdata/bar v0.0.0-20250502110154-1e42a8fd0c15 h1:Ai77yvuoyZTMMMHO14Jnpe7IwBxf9V7ZNCV2EQm/Zq0=
 github.com/meian/rev-callgraph/testdata/bar v0.0.0-20250502110154-1e42a8fd0c15/go.mod h1:qwTRm3tywQrdpEseIUu77IcP2tDOLOcFak/Dmla63g4=
+github.com/meian/rev-callgraph/testdata/bar v0.0.0-20250503081304-7532dec5218b h1:aGOh6MwvTTdW1Cm5PyHO8k+kJR2Y7v1lg7DttnPNZUE=
+github.com/meian/rev-callgraph/testdata/bar v0.0.0-20250503081304-7532dec5218b/go.mod h1:qwTRm3tywQrdpEseIUu77IcP2tDOLOcFak/Dmla63g4=
 github.com/meian/rev-callgraph/testdata/foo v0.0.0-20250502110033-d5afe2c0856e h1:c1KsR61ywP+0IQmnplmZ5LOCme5wJMf7BYDMIO9mczA=
 github.com/meian/rev-callgraph/testdata/foo v0.0.0-20250502110033-d5afe2c0856e/go.mod h1:kz3U2vJh5ZinRYyWyydv4YLBZhvjz5mEL6UuTbGmZfw=
 github.com/meian/rev-callgraph/testdata/qux v0.0.0-20250502110258-b28704b1e72d h1:zJIaDiFKz/vV/0hmNyX67r49UaUfITkWvjKI5V6QLK0=
 github.com/meian/rev-callgraph/testdata/qux v0.0.0-20250502110258-b28704b1e72d/go.mod h1:pprUTYI5iuhzyUNfDY/QY5iOBWEmNjfnaQ1vwL08TLI=
 github.com/meian/rev-callgraph/testdata/qux v0.0.0-20250503081304-7532dec5218b h1:wBh8E4tGYk5dmbYA+HNGu1fCkOP2Zej6jE8/FHq5bmA=
 github.com/meian/rev-callgraph/testdata/qux v0.0.0-20250503081304-7532dec5218b/go.mod h1:pprUTYI5iuhzyUNfDY/QY5iOBWEmNjfnaQ1vwL08TLI=
+github.com/meian/rev-callgraph/testdata/qux v0.0.0-20250503092057-584b70b93365 h1:uWGa9u/qaH3MTptlSN10v7mH69zYu1171oBNacoYnTU=
+github.com/meian/rev-callgraph/testdata/qux v0.0.0-20250503092057-584b70b93365/go.mod h1:FetleriOQKVagOnM8ApqbfB+GlJyy15JS9mNB0Bqr+o=
