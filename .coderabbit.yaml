@@ -1,0 +1,7 @@
+language: "ja"
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  poem: false
+  auto_review:
+    drafts: false
