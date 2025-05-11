@@ -2,6 +2,7 @@ package grep
 
 import (
 	"bufio"
+	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -11,7 +12,7 @@ import (
 // SearchFiles は root 以下の .go ファイルを走査し、
 // target 文字列を含むファイルのパス一覧を返します。
 // メソッド指定の場合 '#' と '.' の両方で検索します。
-func SearchFiles(root, target string) ([]string, error) {
+func SearchFiles(ctx context.Context, root, target string) ([]string, error) {
 	// 検索パターンを準備
 	patterns := []string{target}
 	// メソッドの場合は#を.に置換

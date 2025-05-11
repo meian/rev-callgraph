@@ -35,9 +35,15 @@ var rootCmd = &cobra.Command{
 		slog.SetDefault(slog.New(slog.NewTextHandler(cmd.ErrOrStderr(), nil)))
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		target := args[0]
-		if rootp.Dir == "" {
-			rootp.Dir = filepath.Clean(".")
+		dir := rootp.Dir
+		if dir == "" {
+			dir = filepath.Clean(".")
+		}
+		dir, err := filepath.Abs(dir)
+		if err != nil {
+			return fmt.Errorf("絶対パスの取得失敗: %w", err)
 		}
 
 		// targetパース
@@ -47,14 +53,14 @@ var rootCmd = &cobra.Command{
 		}
 
 		// ディレクトリ内の全モジュールを検出
-		mods, err := gomod.Scan(rootp.Dir)
+		mods, err := gomod.Scan(ctx, dir)
 		if err != nil {
 			return fmt.Errorf("モジュールスキャン失敗: %w", err)
 		}
 		slog.Debug("モジュール検出", "modules", mods)
 
 		// 対象が含まれるモジュールを検出
-		mod, err := mods.FindByFunction(f)
+		mod, err := mods.FindByFunction(ctx, f)
 		if err != nil {
 			return fmt.Errorf("targetの存在確認失敗: %w", err)
 		}
@@ -62,7 +68,7 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("targetが見つかりません: %s", target)
 		}
 
-		root, err := callgraph.CallersTree(*mod, target, *mods, 0, nil, rootp.MaxDepth)
+		root, err := callgraph.CallersTree(ctx, *mod, target, *mods, 0, nil, rootp.MaxDepth)
 		if err != nil {
 			return fmt.Errorf("呼び出し元の取得失敗: %w", err)
 		}

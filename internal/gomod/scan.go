@@ -1,6 +1,7 @@
 package gomod
 
 import (
+	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -9,7 +10,7 @@ import (
 )
 
 // Scan は root 以下の全ての go.mod を解析し、ModuleMapを返します
-func Scan(root string) (*ModuleMap, error) {
+func Scan(ctx context.Context, root string) (*ModuleMap, error) {
 	m := map[string]Module{}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

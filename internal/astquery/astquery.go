@@ -1,6 +1,7 @@
 package astquery
 
 import (
+	"context"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -39,7 +40,7 @@ func determinePkgPath(filePath string, mm gomod.ModuleMap) string {
 
 // ExtractCallers は target を呼び出す関数/メソッドのリストを返します。
 // target の書式は "pkg.Func" または "pkg.Type#Method" です。
-func ExtractCallers(target string, files []string, modules gomod.ModuleMap) ([]symbol.Function, error) {
+func ExtractCallers(ctx context.Context, target string, files []string, modules gomod.ModuleMap) ([]symbol.Function, error) {
 	var callers []symbol.Function
 	for _, path := range files {
 		// ファイルパース

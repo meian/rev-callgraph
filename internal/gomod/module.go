@@ -1,6 +1,7 @@
 package gomod
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -115,7 +116,7 @@ func (mm ModuleMap) FindByPackage(pkg string) (*Module, bool) {
 // FindByFunctionは与えられた関数/メソッド定義が存在するModuleを検索します
 // まずパッケージを含むモジュールを特定し、その中で定義を探索します
 // 見つからない場合は(nil, nil)、エラー時は(nil, err)を返します
-func (mm ModuleMap) FindByFunction(f symbol.Function) (*Module, error) {
+func (mm ModuleMap) FindByFunction(ctx context.Context, f symbol.Function) (*Module, error) {
 	mod, ok := mm.FindByPackage(f.PkgPath)
 	if !ok {
 		return nil, nil // パッケージを含むモジュールが存在しない

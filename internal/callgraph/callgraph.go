@@ -1,6 +1,7 @@
 package callgraph
 
 import (
+	"context"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -44,7 +45,7 @@ func getPkgNameFromPath(pkgPath string, mods gomod.ModuleMap) string {
 
 // CallersTree はツリー構造で呼び出し元を再帰的に構築する
 // maxDepth=0の場合は無制限
-func CallersTree(mod gomod.Module, target string, mods gomod.ModuleMap, depth int, seen map[string]struct{}, maxDepth int) (*symbol.CallNode, error) {
+func CallersTree(ctx context.Context, mod gomod.Module, target string, mods gomod.ModuleMap, depth int, seen map[string]struct{}, maxDepth int) (*symbol.CallNode, error) {
 	if seen == nil {
 		seen = make(map[string]struct{})
 	}
@@ -69,18 +70,18 @@ func CallersTree(mod gomod.Module, target string, mods gomod.ModuleMap, depth in
 	var callers []*symbol.CallNode
 
 	// 同一モジュール内を探索
-	files, err := grep.SearchFiles(mod.Root, target)
+	files, err := grep.SearchFiles(ctx, mod.Root, target)
 	if err != nil {
 		return nil, fmt.Errorf("grep.SearchFiles失敗: %w", err)
 	}
-	callerList, err := astquery.ExtractCallers(target, files, mods)
+	callerList, err := astquery.ExtractCallers(ctx, target, files, mods)
 	if err != nil {
 		return nil, fmt.Errorf("AST解析失敗: %w", err)
 	}
 	for _, c := range callerList {
-		modOfCaller, err := mods.FindByFunction(c)
+		modOfCaller, err := mods.FindByFunction(ctx, c)
 		if err == nil && modOfCaller != nil {
-			child, err := CallersTree(*modOfCaller, c.String(), mods, depth+1, CloneSeen(seen), maxDepth)
+			child, err := CallersTree(ctx, *modOfCaller, c.String(), mods, depth+1, cloneSeen(seen), maxDepth)
 			if err == nil && child != nil {
 				callers = append(callers, child)
 			}
@@ -89,18 +90,18 @@ func CallersTree(mod gomod.Module, target string, mods gomod.ModuleMap, depth in
 
 	// 参照元モジュールを探索
 	for _, refMod := range mods.ReferencedBy(mod) {
-		files, err := grep.SearchFiles(refMod.Root, target)
+		files, err := grep.SearchFiles(ctx, refMod.Root, target)
 		if err != nil {
 			continue // 参照元1つ失敗しても他は続行
 		}
-		callerList, err := astquery.ExtractCallers(target, files, mods)
+		callerList, err := astquery.ExtractCallers(ctx, target, files, mods)
 		if err != nil {
 			continue
 		}
 		for _, c := range callerList {
-			modOfCaller, err := mods.FindByFunction(c)
+			modOfCaller, err := mods.FindByFunction(ctx, c)
 			if err == nil && modOfCaller != nil {
-				child, err := CallersTree(*modOfCaller, c.String(), mods, depth+1, CloneSeen(seen), maxDepth)
+				child, err := CallersTree(ctx, *modOfCaller, c.String(), mods, depth+1, cloneSeen(seen), maxDepth)
 				if err == nil && child != nil {
 					callers = append(callers, child)
 				}
@@ -110,7 +111,7 @@ func CallersTree(mod gomod.Module, target string, mods gomod.ModuleMap, depth in
 	return &symbol.CallNode{Name: target, Callers: callers, Main: isMain}, nil
 }
 
-// CloneSeen はサイクル検出用マップをコピーする
-func CloneSeen(seen map[string]struct{}) map[string]struct{} {
+// cloneSeen はサイクル検出用マップをコピーする
+func cloneSeen(seen map[string]struct{}) map[string]struct{} {
 	return maps.Clone(seen)
 }
