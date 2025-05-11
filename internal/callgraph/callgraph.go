@@ -1,6 +1,7 @@
 package callgraph
 
 import (
+	"context"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -44,7 +45,7 @@ func getPkgNameFromPath(pkgPath string, mods gomod.ModuleMap) string {
 
 // CallersTree はツリー構造で呼び出し元を再帰的に構築する
 // maxDepth=0の場合は無制限
-func CallersTree(mod gomod.Module, target string, mods gomod.ModuleMap, depth int, seen map[string]struct{}, maxDepth int) (*symbol.CallNode, error) {
+func CallersTree(ctx context.Context, mod gomod.Module, target string, mods gomod.ModuleMap, depth int, seen map[string]struct{}, maxDepth int) (*symbol.CallNode, error) {
 	if seen == nil {
 		seen = make(map[string]struct{})
 	}
@@ -78,9 +79,9 @@ func CallersTree(mod gomod.Module, target string, mods gomod.ModuleMap, depth in
 		return nil, fmt.Errorf("AST解析失敗: %w", err)
 	}
 	for _, c := range callerList {
-		modOfCaller, err := mods.FindByFunction(c)
+		modOfCaller, err := mods.FindByFunction(ctx, c)
 		if err == nil && modOfCaller != nil {
-			child, err := CallersTree(*modOfCaller, c.String(), mods, depth+1, CloneSeen(seen), maxDepth)
+			child, err := CallersTree(ctx, *modOfCaller, c.String(), mods, depth+1, cloneSeen(seen), maxDepth)
 			if err == nil && child != nil {
 				callers = append(callers, child)
 			}
@@ -98,9 +99,9 @@ func CallersTree(mod gomod.Module, target string, mods gomod.ModuleMap, depth in
 			continue
 		}
 		for _, c := range callerList {
-			modOfCaller, err := mods.FindByFunction(c)
+			modOfCaller, err := mods.FindByFunction(ctx, c)
 			if err == nil && modOfCaller != nil {
-				child, err := CallersTree(*modOfCaller, c.String(), mods, depth+1, CloneSeen(seen), maxDepth)
+				child, err := CallersTree(ctx, *modOfCaller, c.String(), mods, depth+1, cloneSeen(seen), maxDepth)
 				if err == nil && child != nil {
 					callers = append(callers, child)
 				}
@@ -110,7 +111,7 @@ func CallersTree(mod gomod.Module, target string, mods gomod.ModuleMap, depth in
 	return &symbol.CallNode{Name: target, Callers: callers, Main: isMain}, nil
 }
 
-// CloneSeen はサイクル検出用マップをコピーする
-func CloneSeen(seen map[string]struct{}) map[string]struct{} {
+// cloneSeen はサイクル検出用マップをコピーする
+func cloneSeen(seen map[string]struct{}) map[string]struct{} {
 	return maps.Clone(seen)
 }
