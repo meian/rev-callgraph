@@ -24,6 +24,9 @@ var rootp struct {
 	JSONStyle string
 	// MaxDepth は逆探索の最大深さ
 	MaxDepth int
+	// Progress は進捗を表示するかどうか
+	// デフォルトはfalse
+	Progress bool
 }
 
 var rootCmd = &cobra.Command{
@@ -94,4 +97,5 @@ func init() {
 	rootCmd.Flags().StringVar(&rootp.Format, "format", "tree", "出力形式: json|tree|dot")
 	rootCmd.Flags().StringVar(&rootp.JSONStyle, "json-style", "nested", "json出力スタイル: nested|edges")
 	rootCmd.Flags().IntVar(&rootp.MaxDepth, "max-depth", 0, "逆探索の最大深さ (0は制限なし)")
+	rootCmd.Flags().BoolVar(&rootp.Progress, "progress", false, "進捗を表示するかどうか")
 }
