@@ -13,6 +13,7 @@ import (
 	"github.com/meian/rev-callgraph/internal/astquery"
 	"github.com/meian/rev-callgraph/internal/gomod"
 	"github.com/meian/rev-callgraph/internal/grep"
+	"github.com/meian/rev-callgraph/internal/progress"
 	"github.com/meian/rev-callgraph/internal/symbol"
 )
 
@@ -59,12 +60,17 @@ func CallersTree(ctx context.Context, mod gomod.Module, target string, mods gomo
 
 	// サイクル検出
 	if _, exists := seen[target]; exists {
+		progress.Msgf(ctx, "cycle detected for %s in %s", target, mod.Path)
 		return &symbol.CallNode{Name: target, Cycled: true, Main: isMain}, nil
 	}
 	// 最大深さに到達したら探索終了（0は無制限）
 	if maxDepth > 0 && depth >= maxDepth {
+		progress.Msgf(ctx, "max depth reached for %s in %s", target, mod.Path)
 		return &symbol.CallNode{Name: target, Main: isMain}, nil
 	}
+
+	progress.Msgf(ctx, "search callers for %s in %s", target, mod.Path)
+
 	seen[target] = struct{}{}
 
 	var callers []*symbol.CallNode
@@ -90,6 +96,7 @@ func CallersTree(ctx context.Context, mod gomod.Module, target string, mods gomo
 
 	// 参照元モジュールを探索
 	for _, refMod := range mods.ReferencedBy(mod) {
+		progress.Msgf(ctx, "search for referenced module: %s", refMod.Path)
 		files, err := grep.SearchFiles(ctx, refMod.Root, target)
 		if err != nil {
 			continue // 参照元1つ失敗しても他は続行

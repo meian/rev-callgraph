@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/meian/rev-callgraph/internal/callgraph"
 	"github.com/meian/rev-callgraph/internal/format"
 	"github.com/meian/rev-callgraph/internal/gomod"
+	"github.com/meian/rev-callgraph/internal/progress"
 	"github.com/meian/rev-callgraph/internal/symbol"
 	"github.com/spf13/cobra"
 )
@@ -34,11 +34,12 @@ var rootCmd = &cobra.Command{
 	Short: "逆方向コールグラフ生成ツール",
 	Long:  `Goコードの逆方向コールグラフを生成するCLIツールです。`,
 	Args:  cobra.ExactArgs(1),
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		slog.SetDefault(slog.New(slog.NewTextHandler(cmd.ErrOrStderr(), nil)))
-	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
+		if rootp.Progress {
+			m := progress.NewMessenger(cmd.ErrOrStderr())
+			ctx = progress.WithProgress(ctx, m)
+		}
 		target := args[0]
 		dir := rootp.Dir
 		if dir == "" {
@@ -50,17 +51,18 @@ var rootCmd = &cobra.Command{
 		}
 
 		// targetパース
+		progress.Msgf(ctx, "parse target: %s", target)
 		f, err := symbol.ParseFunction(target)
 		if err != nil {
 			return fmt.Errorf("targetの分解失敗: %w", err)
 		}
 
 		// ディレクトリ内の全モジュールを検出
+		progress.Msgf(ctx, "scan modules in %s", dir)
 		mods, err := gomod.Scan(ctx, dir)
 		if err != nil {
 			return fmt.Errorf("モジュールスキャン失敗: %w", err)
 		}
-		slog.Debug("モジュール検出", "modules", mods)
 
 		// 対象が含まれるモジュールを検出
 		mod, err := mods.FindByFunction(ctx, f)

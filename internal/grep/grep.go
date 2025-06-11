@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/meian/rev-callgraph/internal/progress"
 )
 
 // SearchFiles は root 以下の .go ファイルを走査し、
@@ -26,6 +28,8 @@ func SearchFiles(ctx context.Context, root, target string) ([]string, error) {
 		base = target[i+1:]
 	}
 	patterns = append(patterns, base+"(")
+
+	progress.Msgf(ctx, "search files for %v", patterns)
 
 	var files []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -65,6 +69,9 @@ func SearchFiles(ctx context.Context, root, target string) ([]string, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	for _, f := range files {
+		progress.Msgf(ctx, "  detect file: %s", f)
 	}
 	return files, nil
 }

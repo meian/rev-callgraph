@@ -12,6 +12,10 @@ test-tree: install
 	cd testdata \
 	    && rev-callgraph --format tree $(TARGET)
 
+test-tree-progress: install
+	cd testdata \
+	    && rev-callgraph --format tree $(TARGET) --progress
+
 test-json: install
 	cd testdata \
 	    && rev-callgraph --format json $(TARGET)

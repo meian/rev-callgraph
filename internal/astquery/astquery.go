@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/meian/rev-callgraph/internal/gomod"
+	"github.com/meian/rev-callgraph/internal/progress"
 	"github.com/meian/rev-callgraph/internal/symbol"
 )
 
@@ -41,6 +42,7 @@ func determinePkgPath(filePath string, mm gomod.ModuleMap) string {
 // ExtractCallers は target を呼び出す関数/メソッドのリストを返します。
 // target の書式は "pkg.Func" または "pkg.Type#Method" です。
 func ExtractCallers(ctx context.Context, target string, files []string, modules gomod.ModuleMap) ([]symbol.Function, error) {
+	progress.Msgf(ctx, "extract callers for %s", target)
 	var callers []symbol.Function
 	for _, file := range files {
 		// ファイルパース
@@ -137,6 +139,9 @@ func ExtractCallers(ctx context.Context, target string, files []string, modules 
 				return true
 			})
 		}
+	}
+	for _, c := range callers {
+		progress.Msgf(ctx, "  caller: %s", c)
 	}
 	return callers, nil
 }

@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/meian/rev-callgraph/internal/progress"
 	"github.com/meian/rev-callgraph/internal/symbol"
 )
 
@@ -117,6 +118,7 @@ func (mm ModuleMap) FindByPackage(pkg string) (*Module, bool) {
 // まずパッケージを含むモジュールを特定し、その中で定義を探索します
 // 見つからない場合は(nil, nil)、エラー時は(nil, err)を返します
 func (mm ModuleMap) FindByFunction(ctx context.Context, f symbol.Function) (*Module, error) {
+	progress.Msgf(ctx, "find module for function: %s", f)
 	mod, ok := mm.FindByPackage(f.PkgPath)
 	if !ok {
 		return nil, nil // パッケージを含むモジュールが存在しない
