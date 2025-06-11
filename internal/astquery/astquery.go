@@ -42,12 +42,12 @@ func determinePkgPath(filePath string, mm gomod.ModuleMap) string {
 // target の書式は "pkg.Func" または "pkg.Type#Method" です。
 func ExtractCallers(ctx context.Context, target string, files []string, modules gomod.ModuleMap) ([]symbol.Function, error) {
 	var callers []symbol.Function
-	for _, path := range files {
+	for _, file := range files {
 		// ファイルパース
 		fset := token.NewFileSet()
-		node, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+		node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 		if err != nil {
-			return nil, fmt.Errorf("ASTパース失敗 %s: %w", path, err)
+			return nil, fmt.Errorf("ASTパース失敗 %s: %w", file, err)
 		}
 
 		// インポートマップ: エイリアスまたはパッケージ名 -> モジュールパス
@@ -65,7 +65,7 @@ func ExtractCallers(ctx context.Context, target string, files []string, modules 
 		}
 
 		// ファイルのモジュールパスを決定
-		pkgPath := determinePkgPath(path, modules)
+		pkgPath := determinePkgPath(file, modules)
 
 		// 関数/メソッド宣言ごとにボディ内を探索
 		for _, decl := range node.Decls {

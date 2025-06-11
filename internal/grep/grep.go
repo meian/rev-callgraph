@@ -27,7 +27,7 @@ func SearchFiles(ctx context.Context, root, target string) ([]string, error) {
 	}
 	patterns = append(patterns, base+"(")
 
-	var results []string
+	var files []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -56,7 +56,7 @@ func SearchFiles(ctx context.Context, root, target string) ([]string, error) {
 			line := scanner.Text()
 			for _, p := range patterns {
 				if strings.Contains(line, p) {
-					results = append(results, path)
+					files = append(files, path)
 					return nil
 				}
 			}
@@ -66,5 +66,5 @@ func SearchFiles(ctx context.Context, root, target string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return results, nil
+	return files, nil
 }
