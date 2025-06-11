@@ -1,6 +1,7 @@
 package grep_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,7 +28,7 @@ func foo() {}`), 0644)
 	os.WriteFile(file3, []byte(`package pkg
 // call targetFunc()`), 0644)
 
-	files, err := grep.SearchFiles(root, "targetFunc")
+	files, err := grep.SearchFiles(context.Background(), root, "targetFunc")
 	if err != nil {
 		t.Fatalf("SearchFiles error: %v", err)
 	}

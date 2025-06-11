@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/meian/rev-callgraph/internal/callgraph"
 	"github.com/meian/rev-callgraph/internal/format"
 	"github.com/meian/rev-callgraph/internal/gomod"
+	"github.com/meian/rev-callgraph/internal/progress"
 	"github.com/meian/rev-callgraph/internal/symbol"
 	"github.com/spf13/cobra"
 )
@@ -24,6 +24,9 @@ var rootp struct {
 	JSONStyle string
 	// MaxDepth は逆探索の最大深さ
 	MaxDepth int
+	// Progress は進捗を表示するかどうか
+	// デフォルトはfalse
+	Progress bool
 }
 
 var rootCmd = &cobra.Command{
@@ -31,30 +34,38 @@ var rootCmd = &cobra.Command{
 	Short: "逆方向コールグラフ生成ツール",
 	Long:  `Goコードの逆方向コールグラフを生成するCLIツールです。`,
 	Args:  cobra.ExactArgs(1),
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		slog.SetDefault(slog.New(slog.NewTextHandler(cmd.ErrOrStderr(), nil)))
-	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+		if rootp.Progress {
+			m := progress.NewMessenger(cmd.ErrOrStderr())
+			ctx = progress.WithProgress(ctx, m)
+		}
 		target := args[0]
-		if rootp.Dir == "" {
-			rootp.Dir = filepath.Clean(".")
+		dir := rootp.Dir
+		if dir == "" {
+			dir = filepath.Clean(".")
+		}
+		dir, err := filepath.Abs(dir)
+		if err != nil {
+			return fmt.Errorf("絶対パスの取得失敗: %w", err)
 		}
 
 		// targetパース
+		progress.Msgf(ctx, "parse target: %s", target)
 		f, err := symbol.ParseFunction(target)
 		if err != nil {
 			return fmt.Errorf("targetの分解失敗: %w", err)
 		}
 
 		// ディレクトリ内の全モジュールを検出
-		mods, err := gomod.Scan(rootp.Dir)
+		progress.Msgf(ctx, "scan modules in %s", dir)
+		mods, err := gomod.Scan(ctx, dir)
 		if err != nil {
 			return fmt.Errorf("モジュールスキャン失敗: %w", err)
 		}
-		slog.Debug("モジュール検出", "modules", mods)
 
 		// 対象が含まれるモジュールを検出
-		mod, err := mods.FindByFunction(f)
+		mod, err := mods.FindByFunction(ctx, f)
 		if err != nil {
 			return fmt.Errorf("targetの存在確認失敗: %w", err)
 		}
@@ -62,7 +73,7 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("targetが見つかりません: %s", target)
 		}
 
-		root, err := callgraph.CallersTree(*mod, target, *mods, 0, nil, rootp.MaxDepth)
+		root, err := callgraph.CallersTree(ctx, *mod, target, *mods, 0, nil, rootp.MaxDepth)
 		if err != nil {
 			return fmt.Errorf("呼び出し元の取得失敗: %w", err)
 		}
@@ -88,4 +99,5 @@ func init() {
 	rootCmd.Flags().StringVar(&rootp.Format, "format", "tree", "出力形式: json|tree|dot")
 	rootCmd.Flags().StringVar(&rootp.JSONStyle, "json-style", "nested", "json出力スタイル: nested|edges")
 	rootCmd.Flags().IntVar(&rootp.MaxDepth, "max-depth", 0, "逆探索の最大深さ (0は制限なし)")
+	rootCmd.Flags().BoolVar(&rootp.Progress, "progress", false, "進捗を表示するかどうか")
 }

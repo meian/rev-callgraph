@@ -1,15 +1,17 @@
 package gomod
 
 import (
+	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
 
+	"github.com/meian/rev-callgraph/internal/progress"
 	"golang.org/x/mod/modfile"
 )
 
 // Scan は root 以下の全ての go.mod を解析し、ModuleMapを返します
-func Scan(root string) (*ModuleMap, error) {
+func Scan(ctx context.Context, root string) (*ModuleMap, error) {
 	m := map[string]Module{}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -19,6 +21,7 @@ func Scan(root string) (*ModuleMap, error) {
 			return nil
 		}
 
+		progress.Msgf(ctx, "  detected go module: %s", path)
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err

@@ -1,6 +1,7 @@
 package astquery
 
 import (
+	"context"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/meian/rev-callgraph/internal/gomod"
+	"github.com/meian/rev-callgraph/internal/progress"
 	"github.com/meian/rev-callgraph/internal/symbol"
 )
 
@@ -39,14 +41,15 @@ func determinePkgPath(filePath string, mm gomod.ModuleMap) string {
 
 // ExtractCallers は target を呼び出す関数/メソッドのリストを返します。
 // target の書式は "pkg.Func" または "pkg.Type#Method" です。
-func ExtractCallers(target string, files []string, modules gomod.ModuleMap) ([]symbol.Function, error) {
+func ExtractCallers(ctx context.Context, target string, files []string, modules gomod.ModuleMap) ([]symbol.Function, error) {
+	progress.Msgf(ctx, "extract callers for %s", target)
 	var callers []symbol.Function
-	for _, path := range files {
+	for _, file := range files {
 		// ファイルパース
 		fset := token.NewFileSet()
-		node, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+		node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 		if err != nil {
-			return nil, fmt.Errorf("ASTパース失敗 %s: %w", path, err)
+			return nil, fmt.Errorf("ASTパース失敗 %s: %w", file, err)
 		}
 
 		// インポートマップ: エイリアスまたはパッケージ名 -> モジュールパス
@@ -64,7 +67,7 @@ func ExtractCallers(target string, files []string, modules gomod.ModuleMap) ([]s
 		}
 
 		// ファイルのモジュールパスを決定
-		pkgPath := determinePkgPath(path, modules)
+		pkgPath := determinePkgPath(file, modules)
 
 		// 関数/メソッド宣言ごとにボディ内を探索
 		for _, decl := range node.Decls {
@@ -137,21 +140,10 @@ func ExtractCallers(target string, files []string, modules gomod.ModuleMap) ([]s
 			})
 		}
 	}
-	return callers, nil
-}
-
-// exprToString は ast.Expr (Ident, SelectorExpr) を文字列化します
-func exprToString(expr ast.Expr) string {
-	switch e := expr.(type) {
-	case *ast.Ident:
-		return e.Name
-	case *ast.SelectorExpr:
-		// ネストされたセレクタ（pkg.X）を再帰的に組み立て
-		ns := exprToString(e.X)
-		return fmt.Sprintf("%s.%s", ns, e.Sel.Name)
-	default:
-		return ""
+	for _, c := range callers {
+		progress.Msgf(ctx, "  caller: %s", c)
 	}
+	return callers, nil
 }
 
 // baseName は target から関数/メソッド名部分を抽出します
