@@ -146,20 +146,6 @@ func ExtractCallers(ctx context.Context, target string, files []string, modules 
 	return callers, nil
 }
 
-// exprToString は ast.Expr (Ident, SelectorExpr) を文字列化します
-func exprToString(expr ast.Expr) string {
-	switch e := expr.(type) {
-	case *ast.Ident:
-		return e.Name
-	case *ast.SelectorExpr:
-		// ネストされたセレクタ（pkg.X）を再帰的に組み立て
-		ns := exprToString(e.X)
-		return fmt.Sprintf("%s.%s", ns, e.Sel.Name)
-	default:
-		return ""
-	}
-}
-
 // baseName は target から関数/メソッド名部分を抽出します
 func baseName(target string) string {
 	if idx := strings.LastIndexAny(target, ".#"); idx >= 0 {
