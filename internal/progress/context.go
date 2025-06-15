@@ -1,6 +1,8 @@
 package progress
 
-import "context"
+import (
+	"context"
+)
 
 type messengerKey struct{}
 

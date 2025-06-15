@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/meian/rev-callgraph/internal/astquery"
+	"github.com/meian/rev-callgraph/internal/contextutil"
 	"github.com/meian/rev-callgraph/internal/gomod"
 	"github.com/meian/rev-callgraph/internal/grep"
 	"github.com/meian/rev-callgraph/internal/progress"
@@ -47,6 +48,9 @@ func getPkgNameFromPath(pkgPath string, mods gomod.ModuleMap) string {
 // CallersTree はツリー構造で呼び出し元を再帰的に構築する
 // maxDepth=0の場合は無制限
 func CallersTree(ctx context.Context, mod gomod.Module, target string, mods gomod.ModuleMap, depth int, seen map[string]struct{}, maxDepth int) (*symbol.CallNode, error) {
+	if contextutil.IsCanceledOrTimedOut(ctx) {
+		return nil, ctx.Err()
+	}
 	if seen == nil {
 		seen = make(map[string]struct{})
 	}
@@ -70,7 +74,6 @@ func CallersTree(ctx context.Context, mod gomod.Module, target string, mods gomo
 	}
 
 	progress.Msgf(ctx, "search callers for %s in %s", target, mod.Path)
-
 	seen[target] = struct{}{}
 
 	var callers []*symbol.CallNode
@@ -85,17 +88,24 @@ func CallersTree(ctx context.Context, mod gomod.Module, target string, mods gomo
 		return nil, fmt.Errorf("AST解析失敗: %w", err)
 	}
 	for _, c := range callerList {
+		if contextutil.IsCanceledOrTimedOut(ctx) {
+			return nil, ctx.Err()
+		}
 		modOfCaller, err := mods.FindByFunction(ctx, c)
 		if err == nil && modOfCaller != nil {
 			child, err := CallersTree(ctx, *modOfCaller, c.String(), mods, depth+1, cloneSeen(seen), maxDepth)
-			if err == nil && child != nil {
-				callers = append(callers, child)
+			if err != nil {
+				continue
 			}
+			callers = append(callers, child)
 		}
 	}
 
 	// 参照元モジュールを探索
 	for _, refMod := range mods.ReferencedBy(mod) {
+		if contextutil.IsCanceledOrTimedOut(ctx) {
+			return nil, ctx.Err()
+		}
 		progress.Msgf(ctx, "search for referenced module: %s", refMod.Path)
 		files, err := grep.SearchFiles(ctx, refMod.Root, target)
 		if err != nil {
@@ -106,15 +116,20 @@ func CallersTree(ctx context.Context, mod gomod.Module, target string, mods gomo
 			continue
 		}
 		for _, c := range callerList {
+			if contextutil.IsCanceledOrTimedOut(ctx) {
+				return nil, ctx.Err()
+			}
 			modOfCaller, err := mods.FindByFunction(ctx, c)
 			if err == nil && modOfCaller != nil {
 				child, err := CallersTree(ctx, *modOfCaller, c.String(), mods, depth+1, cloneSeen(seen), maxDepth)
-				if err == nil && child != nil {
-					callers = append(callers, child)
+				if err != nil {
+					continue
 				}
+				callers = append(callers, child)
 			}
 		}
 	}
+
 	return &symbol.CallNode{Name: target, Callers: callers, Main: isMain}, nil
 }
 
