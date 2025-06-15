@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/meian/rev-callgraph/internal/contextutil"
 	"github.com/meian/rev-callgraph/internal/gomod"
 	"github.com/meian/rev-callgraph/internal/progress"
 	"github.com/meian/rev-callgraph/internal/symbol"
@@ -45,6 +46,9 @@ func ExtractCallers(ctx context.Context, target string, files []string, modules 
 	progress.Msgf(ctx, "extract callers for %s", target)
 	var callers []symbol.Function
 	for _, file := range files {
+		if contextutil.IsCanceledOrTimedOut(ctx) {
+			return nil, ctx.Err()
+		}
 		// ファイルパース
 		fset := token.NewFileSet()
 		node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)

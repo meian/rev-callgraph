@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/meian/rev-callgraph/internal/contextutil"
 	"github.com/meian/rev-callgraph/internal/progress"
 )
 
@@ -35,6 +36,10 @@ func SearchFiles(ctx context.Context, root, target string) ([]string, error) {
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		// コンテキストキャンセルチェック
+		if contextutil.IsCanceledOrTimedOut(ctx) {
+			return ctx.Err()
 		}
 		// ディレクトリのスキップ
 		if d.IsDir() {
