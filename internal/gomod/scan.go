@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/meian/rev-callgraph/internal/contextutil"
 	"github.com/meian/rev-callgraph/internal/progress"
 	"golang.org/x/mod/modfile"
 )
@@ -16,6 +17,9 @@ func Scan(ctx context.Context, root string) (*ModuleMap, error) {
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		if contextutil.IsCanceledOrTimedOut(ctx) {
+			return ctx.Err()
 		}
 		if d.IsDir() || d.Name() != "go.mod" {
 			return nil
