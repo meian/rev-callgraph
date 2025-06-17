@@ -1,7 +1,7 @@
 ARG GO_VERSION=1.24.4
 
 # ビルド変数で指定したバージョンのgolangを取得
-FROM alpine:latest AS latest-go-fetcher
+FROM alpine:3.22.0 AS latest-go-fetcher
 ARG GO_VERSION
 ENV GO_VERSION=${GO_VERSION}
 
@@ -10,11 +10,12 @@ RUN curl -LO https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz
 RUN tar -C /tmp -xzf go${GO_VERSION}.linux-amd64.tar.gz
 
 # ツール類の取得
-FROM golang:${GO_VERSION} AS tool-builder
+FROM alpine:3.22.0 AS tool-builder
 
+RUN apk add --no-cache curl tar
 RUN mkdir -p /tmp/ulb
 RUN curl -LO https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-x86_64-unknown-linux-musl.tar.gz
-RUN tar zxf ripgrep-14.1.0-x86_64-unknown-linux-musl.tar.gz 
+RUN tar zxf ripgrep-14.1.0-x86_64-unknown-linux-musl.tar.gz
 RUN mv ripgrep-14.1.0-x86_64-unknown-linux-musl/rg /tmp/ulb
 
 # vscodeのGo拡張用ツールの取得
@@ -38,7 +39,6 @@ RUN apt-get update \
     && ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 
 COPY --from=tool-builder /tmp/ulb /usr/local/bin
-COPY --from=tool-builder /go/bin /go/bin
 
 COPY --from=latest-go-fetcher /tmp/go /tmp/go
 RUN GOPATH=$(dirname $(dirname $(which go))) \

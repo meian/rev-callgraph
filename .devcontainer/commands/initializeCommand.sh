@@ -20,5 +20,4 @@ if which gh &> /dev/null; then
     fi
 else
     echo "GitHub CLI is not installed. Skipping authentication."
-    sed -i '/^GH_TOKEN=/d' "$env"
 fi
