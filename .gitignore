@@ -24,7 +24,6 @@ go.work.sum
 # env file
 .env
 
-.devcontainer/.env.devcontainer
 .devcontainer/resources/ignores/*
 !.devcontainer/resources/ignores/.git-keep
 .devcontainer/tmp/**

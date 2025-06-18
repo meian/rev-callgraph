@@ -10,7 +10,7 @@
 	},
 	"runArgs": [
 		"--env-file",
-		".devcontainer/.env.devcontainer"
+		".devcontainer/tmp/.env.devcontainer"
 	],
 	"containerEnv": {},
 	"initializeCommand": "./.devcontainer/commands/initializeCommand.sh",
