@@ -8,7 +8,7 @@ sed -i "s/^ARG GO_VERSION=.*$/ARG GO_VERSION=${GO_VERSION}/" ./.devcontainer/Doc
 echo "Updated Dockerfile with Go version ${GO_VERSION}"
 
 env='./.devcontainer/tmp/.env.devcontainer'
-> "$env"
+: > "$env"
 
 # GitHub CLI用の認証情報を取得
 if which gh &> /dev/null; then
