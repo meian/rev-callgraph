@@ -7,7 +7,7 @@ GO_VERSION=$(grep -m1 '^go ' ./go.mod | awk '{print $2}')
 sed -i "s/^ARG GO_VERSION=.*$/ARG GO_VERSION=${GO_VERSION}/" ./.devcontainer/Dockerfile
 echo "Updated Dockerfile with Go version ${GO_VERSION}"
 
-env='./.devcontainer/.env.devcontainer'
+env='./.devcontainer/tmp/.env.devcontainer'
 > "$env"
 
 # GitHub CLI用の認証情報を取得
