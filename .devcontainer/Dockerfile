@@ -1,7 +1,7 @@
 ARG GO_VERSION=1.24.4
 
 # ビルド変数で指定したバージョンのgolangを取得
-FROM alpine:3.22.0 AS latest-go-fetcher
+FROM alpine:3.22.1 AS latest-go-fetcher
 ARG GO_VERSION
 ENV GO_VERSION=${GO_VERSION}
 
@@ -10,7 +10,7 @@ RUN curl -LO https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz
 RUN tar -C /tmp -xzf go${GO_VERSION}.linux-amd64.tar.gz
 
 # ツール類の取得
-FROM alpine:3.22.0 AS tool-builder
+FROM alpine:3.22.1 AS tool-builder
 
 RUN apk add --no-cache curl tar
 RUN mkdir -p /tmp/ulb
