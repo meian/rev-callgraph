@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.24.4
+ARG GO_VERSION=1.24.6
 
 # ビルド変数で指定したバージョンのgolangを取得
 FROM alpine:3.22.0 AS latest-go-fetcher
