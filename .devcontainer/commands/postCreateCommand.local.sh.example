@@ -1,18 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# script for customize local environment.
+# ローカル環境をカスタマイズするためのサンプルスクリプト
 
-u=${1:?not set user}
+user=${1:?not set user}
+mail=${2:-some@example.com}
 
-user='some'
-mail='some@example.com'
+run() {
+  printf '+ '; printf '%q ' "$@"; printf '\n'
+  "$@"
+}
 
-cmd="$(cat << CMD
-git config --global user.name $user
-git config --global user.email $mail
-CMD
-)"
-
-echo run postCommand.local.sh
-echo "$cmd"
-eval "$cmd"
+echo run postCreateCommand.local.sh
+run git config --global user.name "$user"
+run git config --global user.email "$mail"
