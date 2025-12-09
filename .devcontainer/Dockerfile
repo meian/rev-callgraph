@@ -11,7 +11,7 @@ ARG TARGETARCH
 ENV GO_VERSION=${GO_VERSION}
 
 RUN apk add --no-cache curl tar
-COPY resources/image/resolve-arch.sh /usr/local/bin/resolve-arch.sh
+COPY .devcontainer/resources/image/resolve-arch.sh /usr/local/bin/resolve-arch.sh
 RUN ARCH=$(/usr/local/bin/resolve-arch.sh); \
     GO_TARBALL=go${GO_VERSION}.linux-${ARCH}.tar.gz; \
     curl -LO https://golang.org/dl/${GO_TARBALL}; \
