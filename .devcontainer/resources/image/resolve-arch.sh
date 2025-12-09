@@ -30,9 +30,11 @@ ARCH=$(normalize_arch "${TARGET}") || fail_unsupported TARGETARCH "${TARGET}"
 
 RG_ARCH=$(resolve_rg_arch "${ARCH}") || fail_unsupported ARCH "${ARCH}"
 
-MODE=${1:-go}
+MODE=${1:?mode required}
 if [ "${MODE}" = "rg" ]; then
     printf '%s\n' "${RG_ARCH}"
-else
+elif [ "${MODE}" = "go" ]; then
     printf '%s\n' "${ARCH}"
+else
+    fail_unsupported MODE "${MODE}"
 fi
