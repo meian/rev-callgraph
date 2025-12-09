@@ -5,7 +5,8 @@
 	"build": {
 		"dockerfile": "Dockerfile",
 		"args": {
-			"USERNAME": "vscode"
+			"USERNAME": "vscode",
+			"GO_ARCH": "${localEnv:GO_ARCH}"
 		}
 	},
 	"runArgs": [
