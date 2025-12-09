@@ -30,7 +30,8 @@ COPY --from=latest-go-fetcher /usr/local/bin/resolve-arch.sh /usr/local/bin/reso
 RUN set -eux; \
     RG_ARCH=$(/usr/local/bin/resolve-arch.sh rg); \
     RG_RELEASE_URL="https://api.github.com/repos/BurntSushi/ripgrep/releases/tags/${RG_VERSION}"; \
-    RG_TARBALL=$(curl -sL "${RG_RELEASE_URL}" | jq -r --arg arch "${RG_ARCH}" --arg ver "${RG_VERSION}" '.assets[].name | select(test("^ripgrep-" + $ver + "-" + $arch + "-unknown-linux-.*\\.tar\\.gz$"))' | head -n 1); \
+    RG_PATTERN="^ripgrep-${RG_VERSION}-${RG_ARCH}-unknown-linux-.*\\.tar\\.gz$"; \
+    RG_TARBALL=$(curl -fsSL "${RG_RELEASE_URL}" | jq -r --arg pattern "${RG_PATTERN}" '.assets[].name | select(test($pattern))' | head -n 1); \
     if [ -z "${RG_TARBALL}" ] || [ "${RG_TARBALL}" = "null" ]; then \
         echo "ripgrep tarball not found for ${RG_VERSION} arch=${RG_ARCH}" >&2; \
         exit 1; \
