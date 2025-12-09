@@ -30,13 +30,13 @@ COPY --from=latest-go-fetcher /usr/local/bin/resolve-arch.sh /usr/local/bin/reso
 RUN set -eux; \
     RG_ARCH=$(/usr/local/bin/resolve-arch.sh rg); \
     RG_RELEASE_URL="https://api.github.com/repos/BurntSushi/ripgrep/releases/tags/${RG_VERSION}"; \
-    # ripgrep assets: ripgrep-[version]-[arch]-unknown-linux-*.tar.gz; select first match for resolved arch
-    RG_PATTERN='^ripgrep-'${RG_VERSION}'-'${RG_ARCH}'-unknown-linux-.*\\.tar\\.gz$'; \
+    # ripgrep assets: ripgrep-{version}-{arch}-unknown-linux-*.tar.gz; select first match for resolved arch
+    RG_PREFIX="ripgrep-${RG_VERSION}-${RG_ARCH}-unknown-linux-"; \
     if ! RG_JSON=$(curl --fail -sSL "${RG_RELEASE_URL}"); then \
         echo "Failed to fetch ripgrep release metadata: ${RG_RELEASE_URL}" >&2; \
         exit 1; \
     fi; \
-    RG_TARBALL=$(printf '%s' "${RG_JSON}" | jq -r --arg pattern "${RG_PATTERN}" '.assets[].name | select(test($pattern))' | head -n 1); \
+    RG_TARBALL=$(printf '%s' "${RG_JSON}" | jq -r --arg prefix "${RG_PREFIX}" '.assets[].name | select(startswith($prefix) and endswith(".tar.gz"))' | head -n 1); \
     if [ -z "${RG_TARBALL}" ] || [ "${RG_TARBALL}" = "null" ]; then \
         echo "ripgrep tarball not found for ${RG_VERSION} arch=${RG_ARCH}" >&2; \
         exit 1; \
