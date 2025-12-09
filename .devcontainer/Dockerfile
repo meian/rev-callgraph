@@ -11,46 +11,7 @@ ARG TARGETARCH
 ENV GO_VERSION=${GO_VERSION}
 
 RUN apk add --no-cache curl tar
-RUN cat <<'EOF' >/usr/local/bin/resolve-arch.sh
-#!/bin/sh
-set -e
-normalize_arch() {
-    case "$1" in
-        amd64|x86_64) echo "amd64" ;;
-        arm64|aarch64) echo "arm64" ;;
-        *) return 1 ;;
-    esac
-}
-fail_unsupported() {
-    echo "Unsupported $1: $2. Supported: amd64, arm64 (aliases: x86_64, aarch64)." >&2
-    exit 1
-}
-resolve_rg_arch() {
-    case "$1" in
-        amd64) echo "x86_64" ;;
-        arm64) echo "aarch64" ;;
-        *) return 1 ;;
-    esac
-}
-ARCH=${GO_ARCH:-}
-TARGET=${TARGETARCH:-}
-if [ -z "${ARCH}" ] || [ "${ARCH}" = "auto" ]; then
-    if [ -z "${TARGET}" ]; then
-        echo "GO_ARCH=auto requires TARGETARCH or an explicit GO_ARCH value. Supported: amd64, arm64 (aliases: x86_64, aarch64)." >&2
-        exit 1
-    fi
-    ARCH=$(normalize_arch "${TARGET}") || fail_unsupported TARGETARCH "${TARGET}"
-else
-    ARCH=$(normalize_arch "${ARCH}") || fail_unsupported GO_ARCH "${ARCH}"
-fi
-RG_ARCH=$(resolve_rg_arch "${ARCH}") || fail_unsupported ARCH "${ARCH}"
-MODE=${1:-go}
-if [ "${MODE}" = "rg" ]; then
-    printf '%s\n' "${RG_ARCH}"
-else
-    printf '%s\n' "${ARCH}"
-fi
-EOF
+COPY .devcontainer/resources/image/resolve-arch.sh /usr/local/bin/resolve-arch.sh
 RUN chmod +x /usr/local/bin/resolve-arch.sh
 RUN ARCH=$(/usr/local/bin/resolve-arch.sh); \
     GO_TARBALL=go${GO_VERSION}.linux-${ARCH}.tar.gz; \
@@ -63,15 +24,20 @@ ARG GO_ARCH
 ARG TARGETARCH
 ARG RG_VERSION
 
-RUN apk add --no-cache curl tar
+RUN apk add --no-cache curl tar jq
 RUN mkdir -p /tmp/ulb
 COPY --from=latest-go-fetcher /usr/local/bin/resolve-arch.sh /usr/local/bin/resolve-arch.sh
 RUN set -eux; \
     RG_ARCH=$(/usr/local/bin/resolve-arch.sh rg); \
-    RG_TARBALL="ripgrep-${RG_VERSION}-${RG_ARCH}-unknown-linux-musl.tar.gz"; \
-    curl -LO https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/${RG_TARBALL}; \
+    RG_RELEASE_URL="https://api.github.com/repos/BurntSushi/ripgrep/releases/tags/${RG_VERSION}"; \
+    RG_TARBALL=$(curl -sL "${RG_RELEASE_URL}" | jq -r --arg arch "${RG_ARCH}" --arg ver "${RG_VERSION}" '.assets[].name | select(test("^ripgrep-" + $ver + "-" + $arch + "-unknown-linux-.*\\.tar\\.gz$"))' | head -n 1); \
+    if [ -z "${RG_TARBALL}" ] || [ "${RG_TARBALL}" = "null" ]; then \
+        echo "ripgrep tarball not found for ${RG_VERSION} arch=${RG_ARCH}" >&2; \
+        exit 1; \
+    fi; \
+    curl -LO "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/${RG_TARBALL}"; \
     tar zxf ${RG_TARBALL}; \
-    RG_DIR="ripgrep-${RG_VERSION}-${RG_ARCH}-unknown-linux-musl"; \
+    RG_DIR="${RG_TARBALL%.tar.gz}"; \
     if [ ! -x "${RG_DIR}/rg" ]; then \
         echo "ripgrep binary not found at ${RG_DIR}/rg" >&2; \
         exit 1; \
