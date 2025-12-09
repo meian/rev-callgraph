@@ -30,6 +30,7 @@ COPY --from=latest-go-fetcher /usr/local/bin/resolve-arch.sh /usr/local/bin/reso
 RUN set -eux; \
     RG_ARCH=$(/usr/local/bin/resolve-arch.sh rg); \
     RG_RELEASE_URL="https://api.github.com/repos/BurntSushi/ripgrep/releases/tags/${RG_VERSION}"; \
+    # ripgrep assets: ripgrep-[version]-[arch]-unknown-linux-*.tar.gz; select first match for resolved arch
     RG_PATTERN='^ripgrep-'${RG_VERSION}'-'${RG_ARCH}'-unknown-linux-.*\\.tar\\.gz$'; \
     if ! RG_JSON=$(curl --fail -sSL "${RG_RELEASE_URL}"); then \
         echo "Failed to fetch ripgrep release metadata: ${RG_RELEASE_URL}" >&2; \
