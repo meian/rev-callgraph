@@ -36,8 +36,8 @@ RUN set -eux; \
         echo "Failed to fetch ripgrep release metadata: ${RG_RELEASE_URL}" >&2; \
         exit 1; \
     fi; \
-    RG_TARBALL=$(printf '%s' "${RG_JSON}" | jq -r --arg prefix "${RG_PREFIX}" '.assets[].name | select(startswith($prefix) and endswith(".tar.gz"))' | head -n 1); \
-    if [ -z "${RG_TARBALL}" ] || [ "${RG_TARBALL}" = "null" ]; then \
+    RG_TARBALL=$(printf '%s' "${RG_JSON}" | jq -r --arg prefix "${RG_PREFIX}" '[.assets[].name | select(startswith($prefix) and endswith(".tar.gz"))] | sort | .[0] // ""'); \
+    if [ -z "${RG_TARBALL}" ]; then \
         echo "ripgrep tarball not found for ${RG_VERSION} arch=${RG_ARCH}" >&2; \
         exit 1; \
     fi; \
