@@ -30,13 +30,20 @@ COPY --from=latest-go-fetcher /usr/local/bin/resolve-arch.sh /usr/local/bin/reso
 RUN set -eux; \
     RG_ARCH=$(/usr/local/bin/resolve-arch.sh rg); \
     RG_RELEASE_URL="https://api.github.com/repos/BurntSushi/ripgrep/releases/tags/${RG_VERSION}"; \
-    RG_PATTERN="^ripgrep-${RG_VERSION}-${RG_ARCH}-unknown-linux-.*\\.tar\\.gz$"; \
-    RG_TARBALL=$(curl --fail -sSL "${RG_RELEASE_URL}" | jq -r --arg pattern "${RG_PATTERN}" '.assets[].name | select(test($pattern))' | head -n 1); \
+    RG_PATTERN='^ripgrep-'${RG_VERSION}'-'${RG_ARCH}'-unknown-linux-.*\\.tar\\.gz$'; \
+    if ! RG_JSON=$(curl --fail -sSL "${RG_RELEASE_URL}"); then \
+        echo "Failed to fetch ripgrep release metadata: ${RG_RELEASE_URL}" >&2; \
+        exit 1; \
+    fi; \
+    RG_TARBALL=$(printf '%s' "${RG_JSON}" | jq -r --arg pattern "${RG_PATTERN}" '.assets[].name | select(test($pattern))' | head -n 1); \
     if [ -z "${RG_TARBALL}" ] || [ "${RG_TARBALL}" = "null" ]; then \
         echo "ripgrep tarball not found for ${RG_VERSION} arch=${RG_ARCH}" >&2; \
         exit 1; \
     fi; \
-    curl --fail -LO "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/${RG_TARBALL}"; \
+    if ! curl --fail -LO "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/${RG_TARBALL}"; then \
+        echo "Failed to download ripgrep tarball ${RG_TARBALL}" >&2; \
+        exit 1; \
+    fi; \
     tar zxf ${RG_TARBALL}; \
     RG_DIR="${RG_TARBALL%.tar.gz}"; \
     if [ ! -x "${RG_DIR}/rg" ]; then \
