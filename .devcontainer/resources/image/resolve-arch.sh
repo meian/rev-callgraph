@@ -26,8 +26,7 @@ ARCH=${GO_ARCH:-}
 TARGET=${TARGETARCH:-}
 if [ -z "${ARCH}" ] || [ "${ARCH}" = "auto" ]; then
     if [ -z "${TARGET}" ]; then
-        echo "GO_ARCH=auto requires TARGETARCH or an explicit GO_ARCH value. Supported: amd64, arm64 (aliases: x86_64, aarch64)." >&2
-        exit 1
+        TARGET=$(uname -m)
     fi
     ARCH=$(normalize_arch "${TARGET}") || fail_unsupported TARGETARCH "${TARGET}"
 else
