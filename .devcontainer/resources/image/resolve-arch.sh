@@ -22,16 +22,11 @@ resolve_rg_arch() {
     esac
 }
 
-ARCH=${GO_ARCH:-}
 TARGET=${TARGETARCH:-}
-if [ -z "${ARCH}" ] || [ "${ARCH}" = "auto" ]; then
-    if [ -z "${TARGET}" ]; then
-        TARGET=$(uname -m)
-    fi
-    ARCH=$(normalize_arch "${TARGET}") || fail_unsupported TARGETARCH "${TARGET}"
-else
-    ARCH=$(normalize_arch "${ARCH}") || fail_unsupported GO_ARCH "${ARCH}"
+if [ -z "${TARGET}" ]; then
+    TARGET=$(uname -m)
 fi
+ARCH=$(normalize_arch "${TARGET}") || fail_unsupported TARGETARCH "${TARGET}"
 
 RG_ARCH=$(resolve_rg_arch "${ARCH}") || fail_unsupported ARCH "${ARCH}"
 
