@@ -11,7 +11,7 @@ ARG TARGETARCH
 ENV GO_VERSION=${GO_VERSION}
 
 RUN apk add --no-cache curl tar
-COPY .devcontainer/resources/image/resolve-arch.sh /usr/local/bin/resolve-arch.sh
+COPY resources/image/resolve-arch.sh /usr/local/bin/resolve-arch.sh
 RUN ARCH=$(/usr/local/bin/resolve-arch.sh); \
     GO_TARBALL=go${GO_VERSION}.linux-${ARCH}.tar.gz; \
     curl -LO https://golang.org/dl/${GO_TARBALL}; \
@@ -26,7 +26,7 @@ ARG RG_VERSION
 RUN apk add --no-cache curl tar jq
 RUN mkdir -p /tmp/ulb
 COPY --from=latest-go-fetcher /usr/local/bin/resolve-arch.sh /usr/local/bin/resolve-arch.sh
-COPY .devcontainer/resources/image/fetch-ripgrep.sh /usr/local/bin/fetch-ripgrep.sh
+COPY resources/image/fetch-ripgrep.sh /usr/local/bin/fetch-ripgrep.sh
 RUN set -eux; \
     RG_ARCH=$(/usr/local/bin/resolve-arch.sh rg); \
     /usr/local/bin/fetch-ripgrep.sh "${RG_VERSION}" "${RG_ARCH}" /tmp/ulb
