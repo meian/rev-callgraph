@@ -1,22 +1,32 @@
 ARG GO_VERSION=1.24.4
+ARG RG_VERSION=14.1.0
 
 # ビルド変数で指定したバージョンのgolangを取得
 FROM alpine:3.22.0 AS latest-go-fetcher
 ARG GO_VERSION
+# TARGETARCH は buildx の --platform 指定時に自動で設定される
+ARG TARGETARCH
 ENV GO_VERSION=${GO_VERSION}
 
 RUN apk add --no-cache curl tar
-RUN curl -LO https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz
-RUN tar -C /tmp -xzf go${GO_VERSION}.linux-amd64.tar.gz
+COPY resources/image/resolve-arch.sh /usr/local/bin/resolve-arch.sh
+RUN ARCH=$(/usr/local/bin/resolve-arch.sh go); \
+    GO_TARBALL=go${GO_VERSION}.linux-${ARCH}.tar.gz; \
+    curl -LO https://golang.org/dl/${GO_TARBALL}; \
+    tar -C /tmp -xzf ${GO_TARBALL}
 
 # ツール類の取得
 FROM alpine:3.22.0 AS tool-builder
+ARG TARGETARCH
+ARG RG_VERSION
 
-RUN apk add --no-cache curl tar
+RUN apk add --no-cache curl tar jq
 RUN mkdir -p /tmp/ulb
-RUN curl -LO https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-x86_64-unknown-linux-musl.tar.gz
-RUN tar zxf ripgrep-14.1.0-x86_64-unknown-linux-musl.tar.gz
-RUN mv ripgrep-14.1.0-x86_64-unknown-linux-musl/rg /tmp/ulb
+COPY --from=latest-go-fetcher /usr/local/bin/resolve-arch.sh /usr/local/bin/resolve-arch.sh
+COPY resources/image/fetch-ripgrep.sh /usr/local/bin/fetch-ripgrep.sh
+RUN set -eux; \
+    RG_ARCH=$(/usr/local/bin/resolve-arch.sh rg); \
+    /usr/local/bin/fetch-ripgrep.sh "${RG_VERSION}" "${RG_ARCH}" /tmp/ulb
 
 # vscodeのGo拡張用ツールの取得
 FROM golang:${GO_VERSION} AS golsp-builder
