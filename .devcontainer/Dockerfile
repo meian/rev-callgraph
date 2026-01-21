@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.24.4
+ARG GO_VERSION=1.25.6
 ARG RG_VERSION=14.1.0
 
 # ビルド変数で指定したバージョンのgolangを取得
@@ -31,9 +31,11 @@ RUN set -eux; \
 # vscodeのGo拡張用ツールの取得
 FROM golang:${GO_VERSION} AS golsp-builder
 
-RUN go install golang.org/x/tools/gopls@v0.18.1
+RUN go install golang.org/x/tools/gopls@v0.21.0
 RUN go install github.com/cweill/gotests/gotests@v1.6.0
 RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.1
+RUN go install github.com/josharian/impl@v1.4.0
+RUN go install github.com/haya14busa/goplay/cmd/goplay@v1.0.0
 
 # devcontainerのイメージ
 FROM mcr.microsoft.com/devcontainers/go:1.24-bookworm
