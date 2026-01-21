@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euo pipefail
+set -e
 
 VERSION=${1:?version required}
 ARCH=${2:?arch required}
