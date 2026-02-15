@@ -2,7 +2,7 @@ ARG GO_VERSION=1.26.0
 ARG RG_VERSION=14.1.0
 
 # ビルド変数で指定したバージョンのgolangを取得
-FROM alpine:3.22.0 AS latest-go-fetcher
+FROM alpine:3.23.3 AS latest-go-fetcher
 ARG GO_VERSION
 # TARGETARCH は buildx の --platform 指定時に自動で設定される
 ARG TARGETARCH
@@ -16,7 +16,7 @@ RUN ARCH=$(/usr/local/bin/resolve-arch.sh go); \
     tar -C /tmp -xzf ${GO_TARBALL}
 
 # ツール類の取得
-FROM alpine:3.22.0 AS tool-builder
+FROM alpine:3.23.3 AS tool-builder
 ARG TARGETARCH
 ARG RG_VERSION
 
