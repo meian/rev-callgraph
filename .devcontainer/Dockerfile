@@ -40,13 +40,17 @@ FROM mcr.microsoft.com/devcontainers/go:1.24-bookworm
 
 ARG USERNAME
 
-RUN apt-get update \
-    && apt-get install -y \
+RUN set -eux; \
+    rm -f /etc/apt/sources.list.d/yarn.list /etc/apt/sources.list.d/yarn.list.save; \
+    apt-get update; \
+    apt-get install -y \
     vim \
     curl \
-    sqlite3 \
-    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /tmp/library-scripts/ \
-    && ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+    sqlite3; \
+    apt-get autoremove -y; \
+    apt-get clean -y; \
+    rm -rf /var/lib/apt/lists/* /tmp/library-scripts/; \
+    ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 
 COPY --from=tool-builder /tmp/ulb /usr/local/bin
 
