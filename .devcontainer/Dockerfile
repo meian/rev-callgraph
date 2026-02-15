@@ -43,7 +43,7 @@ ARG USERNAME
 RUN set -eux; \
     rm -f /etc/apt/sources.list.d/yarn.list /etc/apt/sources.list.d/yarn.list.save; \
     apt-get update; \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
     vim \
     curl \
     sqlite3; \
