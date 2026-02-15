@@ -1,6 +1,6 @@
 module github.com/meian/rev-callgraph
 
-go 1.24.4
+go 1.26.0
 
 require (
 	github.com/fatih/color v1.18.0
