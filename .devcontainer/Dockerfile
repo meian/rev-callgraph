@@ -39,7 +39,7 @@ RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.1
 
 # devcontainerのイメージ
 # Goのバージョンに追随してすぐに新しいバージョンが出ないため、Goのバージョンとは独立して更新できるようにする
-FROM mcr.microsoft.com/devcontainers/go:1.24-bookworm
+FROM mcr.microsoft.com/devcontainers/go:2.0-bookworm
 
 ARG USERNAME
 
