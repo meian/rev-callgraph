@@ -6,7 +6,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/mod v0.25.0
+	golang.org/x/mod v0.33.0
 )
 
 require (
