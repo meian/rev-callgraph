@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.26.0
+ARG GO_VERSION=1.26.2
 ARG RG_VERSION=14.1.0
 
 # ビルド変数で指定したバージョンのgolangを取得
