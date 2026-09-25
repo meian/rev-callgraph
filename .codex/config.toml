@@ -1,0 +1,39 @@
+
+approval_policy = "on-request"
+approvals_reviewer = "user"
+
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+
+[agents]
+enabled = true
+
+[agents.investigator]
+description = "既存実装・影響範囲・原因を調査する。原則として実装は行わない。"
+config_file = "agents/investigator.toml"
+
+[agents.implementer]
+description = "設計や調査結果をもとに実装を行う。"
+config_file = "agents/implementer.toml"
+
+[agents.test-planner]
+description = "必要なテスト観点・ケース・影響範囲を洗い出す。"
+config_file = "agents/test-planner.toml"
+
+[agents.test-implementer]
+description = "決められたテスト方針に従ってテストコードを実装・修正する。"
+config_file = "agents/test-implementer.toml"
+
+[agents.reviewer]
+description = "実装を独立した視点でレビューし、欠陥・回帰・不足を検出する。"
+config_file = "agents/reviewer.toml"
+
+[agents.docs]
+description = "コード変更に対応するドキュメントの作成・更新を行う。"
+config_file = "agents/docs.toml"
+
+[agents.mechanical]
+description = "単純な検索、置換、列挙、定型修正など機械的な作業を行う。"
+config_file = "agents/mechanical.toml"
