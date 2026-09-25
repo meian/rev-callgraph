@@ -373,6 +373,16 @@ func cloneScope(scope sourceScope) sourceScope {
 	return child
 }
 
+func startsSourceScope(n ast.Node) bool {
+	switch n.(type) {
+	case *ast.BlockStmt, *ast.IfStmt, *ast.ForStmt, *ast.SwitchStmt,
+		*ast.TypeSwitchStmt, *ast.RangeStmt, *ast.SelectStmt,
+		*ast.CaseClause, *ast.CommClause:
+		return true
+	}
+	return false
+}
+
 func (a *sourceAnalyzer) analyzeBody(fn *Function, d *ast.FuncDecl) {
 	scope := sourceScope{vars: make(map[string]TypeRef), funcs: make(map[string]Call), declared: make(map[string]bool)}
 	for name, typ := range a.globals {
@@ -406,7 +416,7 @@ func (a *sourceAnalyzer) analyzeBody(fn *Function, d *ast.FuncDecl) {
 	var scopes []sourceScope
 	ast.Inspect(d.Body, func(n ast.Node) bool {
 		if n == nil {
-			if _, ok := stack[len(stack)-1].(*ast.BlockStmt); ok {
+			if startsSourceScope(stack[len(stack)-1]) {
 				scope = scopes[len(scopes)-1]
 				scopes = scopes[:len(scopes)-1]
 			}
@@ -418,10 +428,12 @@ func (a *sourceAnalyzer) analyzeBody(fn *Function, d *ast.FuncDecl) {
 			parent = stack[len(stack)-1]
 		}
 		stack = append(stack, n)
-		switch x := n.(type) {
-		case *ast.BlockStmt:
+		if startsSourceScope(n) {
 			scopes = append(scopes, scope)
 			scope = cloneScope(scope)
+		}
+		switch x := n.(type) {
+		case *ast.BlockStmt:
 			if x == d.Body {
 				for k, v := range scopes[len(scopes)-1].declared {
 					scope.declared[k] = v
@@ -738,6 +750,18 @@ func AnalyzeExternal(packagePath, name string) (*Signature, error) {
 // AnalyzeExternalContext reads only files selected by the target build context
 // from a Go standard-library package. A missing symbol returns nil.
 func AnalyzeExternalContext(packagePath, name string, buildContext BuildContext) (*Signature, error) {
+	function, err := AnalyzeExternalFunction(packagePath, name, "", buildContext)
+	if err != nil || function == nil {
+		return nil, err
+	}
+	return &Signature{Params: function.Params, Results: function.Results, Variadic: function.Variadic}, nil
+}
+
+// AnalyzeExternalFunction identifies a standard-library function or a method
+// of the specified receiver, preserving its declared receiver for method expressions.
+// receiver is a canonical type name (optionally prefixed with *); empty selects
+// package-level functions only.
+func AnalyzeExternalFunction(packagePath, name, receiver string, buildContext BuildContext) (*Function, error) {
 	if packagePath == "" || packagePath == "C" {
 		return nil, nil
 	}
@@ -773,7 +797,7 @@ func AnalyzeExternalContext(packagePath, name string, buildContext BuildContext)
 		if err != nil {
 			return nil, fmt.Errorf("parse external %s: %w", path, err)
 		}
-		a := &sourceAnalyzer{source: Source{Package: packagePath}, imports: make(map[string]string)}
+		a := &sourceAnalyzer{source: Source{Package: packagePath}, imports: make(map[string]string), fset: fset}
 		for _, imp := range file.Imports {
 			path, err := strconv.Unquote(imp.Path.Value)
 			if err != nil {
@@ -786,10 +810,25 @@ func AnalyzeExternalContext(packagePath, name string, buildContext BuildContext)
 			a.imports[alias] = path
 		}
 		for _, decl := range file.Decls {
-			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Name.Name == name && fn.Recv == nil {
-				sig := a.signature(fn.Type)
-				return &sig, nil
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Name.Name != name {
+				continue
 			}
+			if receiver == "" {
+				if fn.Recv != nil {
+					continue
+				}
+			} else {
+				if fn.Recv == nil || len(fn.Recv.List) != 1 {
+					continue
+				}
+				declared := a.typeOf(fn.Recv.List[0].Type).Name
+				if strings.TrimPrefix(declared, "*") != strings.TrimPrefix(receiver, "*") {
+					continue
+				}
+			}
+			function := a.function(fn)
+			return &function, nil
 		}
 	}
 	return nil, nil

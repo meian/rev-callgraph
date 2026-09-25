@@ -23,9 +23,9 @@ symbol set は `runtime`（既定）と `test` です。`runtime` は `*_test.go
 | compatibility | `incompatible` | 現在の定義との明確な不一致を検出 |
 | compatibility | `unknown` | 型や宣言などの情報不足で判定不能 |
 
-解析中の「未ロード」は `unknown` と区別します。欠落した symbol、引数数や既知の型、variadic、結果数や既知の結果型などを検査し、非互換の理由を `issues` に保持します。型情報が不足する場合は無理に非互換と判定せず `unknown` とします。定数の表現可能範囲、判明している配列長、値型・ポインタ型および埋め込みによる method set も検査します。別ファイルの定義を参照する関数値呼び出しとメソッド式も、定義を追加探索して解決します。配列長などの型情報を確定できない場合は `unknown` とします。完全な Go type checker による build 成否判定ではありません。reflection や動的な関数値の全候補列挙、複雑な generic constraint の証明は行わず、情報が不足する判定は `unknown` にします。
+解析中の「未ロード」は `unknown` と区別します。欠落した symbol、引数数や既知の型、variadic、結果数や既知の結果型などを検査し、非互換の理由を `issues` に保持します。型情報が不足する場合は無理に非互換と判定せず `unknown` とします。定数の表現可能範囲、判明している配列長、値型・ポインタ型および埋め込みによる method set も検査します。別ファイルの定義を参照する関数値呼び出しとメソッド式も、定義を追加探索して解決します。制御文や各節で宣言した変数はその有効範囲に限って名前を隠し、文の外側の import・symbol 解決へ持ち越しません。配列長などの型情報を確定できない場合は `unknown` とします。完全な Go type checker による build 成否判定ではありません。reflection や動的な関数値の全候補列挙、複雑な generic constraint の証明は行わず、情報が不足する判定は `unknown` にします。
 
-cgo は `import "C"` に対応し、preamble や source と同じディレクトリにある直接 include された header の単純な C 宣言から名前と引数型を読める範囲で `external` と互換性を判定します。複雑な macro、C の全構文や header の依存連鎖を網羅するものではなく、情報を取得できなければ `unknown` です。標準ライブラリも指定した build context で宣言を探し、参照できた場合は `external` として終端にします。
+cgo は `import "C"` に対応し、preamble や source と同じディレクトリにある直接 include された header の単純な C 宣言から名前と引数型を読める範囲で `external` と互換性を判定します。複雑な macro、C の全構文や header の依存連鎖を網羅するものではなく、情報を取得できなければ `unknown` です。標準ライブラリも指定した build context で関数・receiver 付きメソッドの宣言を探し、参照できた場合は `external` として終端にします。同名の関数と別の型のメソッドを区別し、メソッド式の互換性判定にも宣言上の receiver を用います。
 
 逆探索は `compatible` と `unknown` の辺では継続します。`incompatible` の caller 自身は結果へ残し、その caller より上位では停止します。`external` は終端です。同一 caller から同一 callee への呼び出しでも、解決・互換性・非互換理由が異なる場合は別の辺・木の枝として残します。そのため一部の call site が非互換でも、別の互換な call site を通る上位探索は継続します。判定が同じ呼び出しは表示をまとめます。cycle は表示して再帰を止めます。`--max-depth` が正の値なら起点を深さ 0 として探索を制限し、`0` 以下なら深さ制限はありません。
 

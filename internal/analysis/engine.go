@@ -51,7 +51,7 @@ type engine struct {
 	stats           Statistics
 	callerCache     map[string][]Edge
 	definitionCache map[string]bool
-	externalCache   map[string]*Signature
+	externalCache   map[string]*Function
 	build           BuildContext
 }
 
@@ -68,7 +68,7 @@ func AnalyzeWithPolicy(ctx context.Context, target string, options Options, poli
 	if err != nil {
 		return nil, err
 	}
-	e := &engine{ctx: ctx, workspace: w, locator: locator, models: map[string]SourceModel{}, functions: map[string]Function{}, types: map[string]Type{}, callerCache: map[string][]Edge{}, definitionCache: map[string]bool{}, externalCache: map[string]*Signature{}, build: options.Build}
+	e := &engine{ctx: ctx, workspace: w, locator: locator, models: map[string]SourceModel{}, functions: map[string]Function{}, types: map[string]Type{}, callerCache: map[string][]Edge{}, definitionCache: map[string]bool{}, externalCache: map[string]*Function{}, build: options.Build}
 	e.stats.DiscoveredSources = len(w.Sources)
 	// Missing symbols remain valid roots so callers of a removed API can be shown.
 	if err = e.definitions(t.Package, t.Name); err != nil {
@@ -216,20 +216,19 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 	}
 	// Read a declaration before marking a standard-library symbol external.
 	if !strings.Contains(strings.Split(pkg, "/")[0], ".") && pkg != "C" {
-		sig, ok := e.externalCache[id]
+		external, ok := e.externalCache[id]
 		if !ok {
 			var err error
-			sig, err = AnalyzeExternalContext(pkg, name, e.build)
+			external, err = AnalyzeExternalFunction(pkg, name, call.Receiver, e.build)
 			if err != nil {
 				return id, Resolution{Status: Unknown}, nil, nil
 			}
-			e.externalCache[id] = sig
+			e.externalCache[id] = external
 		} else {
 			e.stats.CacheHits++
 		}
-		if sig != nil {
-			f := &Function{ID: id, Package: pkg, Name: name, Params: sig.Params, Results: sig.Results, Variadic: sig.Variadic}
-			return id, Resolution{Status: External, Kind: "standard-library"}, f, nil
+		if external != nil {
+			return id, Resolution{Status: External, Kind: "standard-library"}, external, nil
 		}
 	}
 	// Syntax alone does not establish that a dependency symbol exists.
