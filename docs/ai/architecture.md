@@ -22,6 +22,8 @@ CLI -> Discover -> NewLocator -> AnalyzeSource (必要な file)
 
 ## Resolution、Compatibility、traversal
 
+import 名は明示 alias、workspace の package 宣言名、標準ライブラリの package 宣言名の順で取得する。標準ライブラリの名前取得には解析対象の build context を渡し、取得できなければ import path の末尾へフォールバックする。通常 source と外部宣言で同じ名前取得を使用し、`math/rand/v2` のように path 末尾と宣言名が異なる package を扱う。
+
 `resolve` は追加 source の読込後に `resolved`、`external`、`unknown` を決める。未ロードの状態を失敗とみなさない。ワークスペース内の定義、alias、field と embedded method、interface の宣言、標準ライブラリ宣言、cgo 宣言を扱う。標準ライブラリにも同一の target build context を渡す。外部探索は package/name/receiver を照合し、receiver を保持した独自 Function を cache する。外部宣言の parse 失敗も nil として cache し、初回・再利用時とも `unknown` / `definition-unavailable` を返す。source 変換では block に加えて制御文と case/communication 節の scope を出入りし、init 宣言による shadow が文外へ漏れないようにする。cgo は preamble と単純な local header 宣言を読む。宣言の取れない外部 symbol は `unknown` とし、存在を仮定した `external` にしない。
 
 `compatibility` は resolution とは独立して、既知の signature、引数、結果、method expression などを比較する。メソッド式の第一引数には `call.Receiver` を使い、その型の method set を検証する。非互換でも解決できた関係は残すため、通常のメソッド呼び出しと共通の宣言探索では値・ポインタの差だけを理由に排除しない。明確な不一致は `Issue{Kind, Message}` とともに `incompatible`、型情報が足りない場合は `unknown` にする。`TraversalPolicy` は非互換辺を越えるかどうかを切り替える。CLI の初期設定では非互換 caller を残してその先を停止し、`unknown` は継続する。call site ごとの判定後、同じ caller/callee・resolution・compatibility・issues の辺のみ表示をまとめる。異なる判定をまとめて非互換を優先してはならない。cycle と max depth は graph 構築時に処理する。
@@ -54,3 +56,4 @@ target parse、module 系列、symbol set、build context、locator、source mod
 
 - `method_expression_regression_test.go`: 昇格メソッド式、値・ポインタのmethod set、正常経路と非互換境界。
 - `external_cache_test.go`: 外部宣言のparse失敗を同一実行内で再解析しないこととunknown理由の一貫性。
+- `package_name_regression_test.go`: 標準ライブラリの宣言package名、明示alias、workspace名の優先順位と対象build context。

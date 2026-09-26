@@ -70,6 +70,7 @@ type Source struct {
 	ImportPaths                map[string]string
 	PackageNames               map[string]string
 	Path, Package, PackageName string
+	Build                      BuildContext
 	Module                     int
 	Test                       bool
 }

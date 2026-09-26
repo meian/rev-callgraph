@@ -24,6 +24,7 @@ func AnalyzeSource(source Source) (SourceModel, error) {
 		return SourceModel{}, fmt.Errorf("parse %s: %w", source.Path, err)
 	}
 	a := &sourceAnalyzer{source: source, fset: fset, file: file, imports: make(map[string]string), cgo: make(map[string]cDeclaration), functions: make(map[string]Signature), types: make(map[string]TypeRef), fields: make(map[string]map[string]TypeRef), constants: make(map[string]ast.Expr), globalFuncs: make(map[string]Call)}
+	buildConfig := sourceBuildConfig(source.Build)
 	for _, imp := range file.Imports {
 		path, err := strconv.Unquote(imp.Path.Value)
 		if err != nil {
@@ -33,11 +34,12 @@ func AnalyzeSource(source Source) (SourceModel, error) {
 			path = replacement
 		}
 		name := filepath.Base(path)
-		if declared := source.PackageNames[path]; declared != "" {
-			name = declared
-		}
 		if imp.Name != nil {
 			name = imp.Name.Name
+		} else if declared := source.PackageNames[path]; declared != "" {
+			name = declared
+		} else if declared := standardPackageName(buildConfig, path); declared != "" {
+			name = declared
 		}
 		a.imports[name] = path
 		if path == "C" {
@@ -767,21 +769,7 @@ func AnalyzeExternalFunction(packagePath, name, receiver string, buildContext Bu
 	if packagePath == "" || packagePath == "C" {
 		return nil, nil
 	}
-	buildConfig := build.Default
-	if buildContext.GOOS != "" {
-		buildConfig.GOOS = buildContext.GOOS
-	}
-	if buildContext.GOARCH != "" {
-		buildConfig.GOARCH = buildContext.GOARCH
-	}
-	if buildContext.CgoSet {
-		buildConfig.CgoEnabled = buildContext.Cgo
-	} else if buildConfig.GOOS != build.Default.GOOS || buildConfig.GOARCH != build.Default.GOARCH {
-		buildConfig.CgoEnabled = false
-	}
-	if len(buildContext.Tags) != 0 {
-		buildConfig.BuildTags = append([]string(nil), buildContext.Tags...)
-	}
+	buildConfig := sourceBuildConfig(buildContext)
 	pkg, err := buildConfig.Import(packagePath, "", 0)
 	if err != nil {
 		return nil, nil
@@ -808,6 +796,8 @@ func AnalyzeExternalFunction(packagePath, name, receiver string, buildContext Bu
 			alias := filepath.Base(path)
 			if imp.Name != nil {
 				alias = imp.Name.Name
+			} else if declared := standardPackageName(buildConfig, path); declared != "" {
+				alias = declared
 			}
 			a.imports[alias] = path
 		}
@@ -834,6 +824,39 @@ func AnalyzeExternalFunction(packagePath, name, receiver string, buildContext Bu
 		}
 	}
 	return nil, nil
+}
+
+// sourceBuildConfig は対象環境に合わせたgo/build設定を返す。
+func sourceBuildConfig(buildContext BuildContext) build.Context {
+	buildConfig := build.Default
+	if buildContext.GOOS != "" {
+		buildConfig.GOOS = buildContext.GOOS
+	}
+	if buildContext.GOARCH != "" {
+		buildConfig.GOARCH = buildContext.GOARCH
+	}
+	if buildContext.CgoSet {
+		buildConfig.CgoEnabled = buildContext.Cgo
+	} else if buildConfig.GOOS != build.Default.GOOS || buildConfig.GOARCH != build.Default.GOARCH {
+		buildConfig.CgoEnabled = false
+	}
+	if len(buildContext.Tags) != 0 {
+		buildConfig.BuildTags = append([]string(nil), buildContext.Tags...)
+	}
+	return buildConfig
+}
+
+// standardPackageName は標準ライブラリの宣言上のpackage名を返す。
+// 宣言を取得できない場合は空文字を返し、呼び出し側で従来のpath末尾名を使う。
+func standardPackageName(buildConfig build.Context, path string) string {
+	if strings.Contains(strings.Split(path, "/")[0], ".") || path == "C" {
+		return ""
+	}
+	pkg, err := buildConfig.Import(path, "", 0)
+	if err != nil || !pkg.Goroot {
+		return ""
+	}
+	return pkg.Name
 }
 
 func (a *sourceAnalyzer) resultContext(c *Call, expr *ast.CallExpr, parent ast.Node, fn *Function, scope *sourceScope) {

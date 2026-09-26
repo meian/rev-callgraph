@@ -130,6 +130,7 @@ func (e *engine) load(s Source) error {
 	if err := e.ctx.Err(); err != nil {
 		return err
 	}
+	s.Build = e.build
 	model, err := AnalyzeSource(s)
 	if err != nil {
 		return fmt.Errorf("analyze %s: %w", s.Path, err)

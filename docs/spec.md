@@ -29,6 +29,13 @@ cgo は `import "C"` に対応し、preamble や source と同じディレクト
 
 逆探索は `compatible` と `unknown` の辺では継続します。`incompatible` の caller 自身は結果へ残し、その caller より上位では停止します。`external` は終端です。同一 caller から同一 callee への呼び出しでも、解決・互換性・非互換理由が異なる場合は別の辺・木の枝として残します。そのため一部の call site が非互換でも、別の互換な call site を通る上位探索は継続します。判定が同じ呼び出しは表示をまとめます。cycle は表示して再帰を止めます。`--max-depth` が正の値なら起点を深さ 0 として探索を制限し、`0` 以下なら深さ制限はありません。
 
+import に明示された alias を優先し、省略時はワークスペースで収集した package 宣言名、または対象 build context で取得した標準ライブラリの package 宣言名を使います。例えば `math/rand/v2` は `rand` として認識します。宣言名を取得できない場合は import path の末尾を使います。
+
+### 既知の判定制限
+
+- 通常のメソッド呼び出しでは receiver 式のアドレス可能性をまだ判定していません。ポインタ receiver 専用メソッドへの `T{}.M()` など、成立しない呼び出しを `compatible` として上位へ探索する場合があります（[#60](https://github.com/meian/rev-callgraph/issues/60)）。メソッド式の判定とは別の制限です。
+- 埋め込み要素を持つ interface への代入互換性は、適合を確定できる場合でも `unknown` になることがあります。`unknown` の辺からの探索は継続します（[#61](https://github.com/meian/rev-callgraph/issues/61)）。
+
 ## 出力
 
 `--format tree`（既定）は起点と呼び出し元の木を 2 スペースずつ字下げします。main と cycle にはそれぞれ `[main]`、`(cycled)` を付けます。通常の `resolved` / `compatible` 辺以外には `[resolution=..., compatibility=...]` と issue の kind を付けます。
