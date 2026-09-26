@@ -373,6 +373,8 @@ func cloneScope(scope sourceScope) sourceScope {
 	return child
 }
 
+// startsSourceScope は新しい局所scopeを開始するノードかを返す。
+// 制御文のinit宣言や各節の宣言が文外へ漏れないよう、scopeを分ける。
 func startsSourceScope(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.BlockStmt, *ast.IfStmt, *ast.ForStmt, *ast.SwitchStmt,

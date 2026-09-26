@@ -28,8 +28,23 @@ func (e *engine) compatibility(call Call, callee *Function, res Resolution) Comp
 		}
 		return c
 	}
+	uncertain := false
 	if call.MethodExpression && callee != nil {
-		sig = &Signature{Params: append([]Parameter{{Type: TypeRef{Name: callee.Receiver}}}, sig.Params...), Results: sig.Results, Variadic: sig.Variadic}
+		// メソッド式の第一引数は、昇格元の宣言型ではなく式のreceiver型で判定する。
+		sig = &Signature{Params: append([]Parameter{{Type: TypeRef{Name: call.Receiver}}}, sig.Params...), Results: sig.Results, Variadic: sig.Variadic}
+		if _, found, known := e.interfaceMethod(call.Receiver, call.Name); known {
+			if !found {
+				issue("method-expression", "method is not in the expression receiver's method set")
+			}
+		} else if res.Status == External && callee.Receiver != "" {
+			// 標準ライブラリの型定義は未読込なので、宣言のreceiverと照合する。
+			declared := callee.Receiver
+			if call.Receiver != declared && !(strings.HasPrefix(call.Receiver, "*") && !strings.HasPrefix(declared, "*") && receiverID(call.Receiver) == declared) {
+				issue("method-expression", "method is not in the expression receiver's method set")
+			}
+		} else {
+			uncertain = true
+		}
 	}
 	n := len(sig.Params)
 	argc := len(call.Arguments)
@@ -39,7 +54,6 @@ func (e *engine) compatibility(call Call, callee *Function, res Resolution) Comp
 	if (!sig.Variadic && argc != n) || (sig.Variadic && argc < n-1) || (sig.Variadic && call.Spread && argc != n) {
 		issue("argument-count", "argument count does not match the current signature")
 	}
-	uncertain := false
 	for i, arg := range call.Arguments {
 		j := i
 		if sig.Variadic && j >= n-1 {

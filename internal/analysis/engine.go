@@ -221,7 +221,8 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 			var err error
 			external, err = AnalyzeExternalFunction(pkg, name, call.Receiver, e.build)
 			if err != nil {
-				return id, Resolution{Status: Unknown}, nil, nil
+				// 外部宣言を解析できない場合も未取得としてcacheし、unknownで探索を続ける。
+				external = nil
 			}
 			e.externalCache[id] = external
 		} else {
