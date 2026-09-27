@@ -39,7 +39,8 @@ func (e *engine) compatibility(call Call, callee *Function, res Resolution) Comp
 		} else if res.Status == External && callee.Receiver != "" {
 			// 標準ライブラリの型定義は未読込なので、宣言のreceiverと照合する。
 			declared := callee.Receiver
-			if call.Receiver != declared && !(strings.HasPrefix(call.Receiver, "*") && !strings.HasPrefix(declared, "*") && receiverID(call.Receiver) == declared) {
+			receiver := e.canonicalAliasReceiver(call.Receiver)
+			if receiver != declared && !(strings.HasPrefix(receiver, "*") && !strings.HasPrefix(declared, "*") && receiverID(receiver) == declared) {
 				issue("method-expression", "method is not in the expression receiver's method set")
 			}
 		} else {

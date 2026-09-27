@@ -161,6 +161,37 @@ func (e *engine) definitions(pkg, name string) error {
 	return nil
 }
 func receiverID(receiver string) string { return strings.TrimPrefix(receiver, "*") }
+
+// canonicalAliasReceiver はポインタを保持して型エイリアスを追跡する。
+// 定義型では追跡を止める。
+func (e *engine) canonicalAliasReceiver(receiver string) string {
+	original := receiver
+	seen := map[string]bool{}
+	pointer := strings.HasPrefix(receiver, "*")
+	receiver = receiverID(receiver)
+	for {
+		if seen[receiver] {
+			return original
+		}
+		seen[receiver] = true
+		typ, ok := e.types[receiver]
+		if !ok || !typ.Alias || typ.Underlying == "" {
+			break
+		}
+		if strings.HasPrefix(typ.Underlying, "*") {
+			if pointer {
+				return original // ポインタの別名へのポインタにはメソッドがない。
+			}
+			pointer = true
+		}
+		receiver = receiverID(typ.Underlying)
+	}
+	if pointer {
+		return "*" + receiver
+	}
+	return receiver
+}
+
 func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Function, error) {
 	e.stats.ResolutionLookups++
 	if call.ReceiverRef != nil {
@@ -202,6 +233,17 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 				return "", Resolution{Status: External, Kind: "different-module-series"}, nil, nil
 			}
 			return f.ID, Resolution{Status: Resolved}, &f, nil
+		}
+		// ローカルの別名が標準ライブラリ型を指す場合は、実型で宣言を探す。
+		canonical := e.canonicalAliasReceiver(call.Receiver)
+		base := receiverID(canonical)
+		if i := strings.LastIndex(base, "."); i > 0 {
+			aliasPkg := base[:i]
+			if canonical != call.Receiver && !strings.Contains(strings.Split(aliasPkg, "/")[0], ".") && aliasPkg != "C" {
+				call.Receiver = canonical
+				pkg = aliasPkg
+				id = base + "#" + name
+			}
 		}
 	}
 	if call.ExternalKind != "" {

@@ -58,3 +58,4 @@ target parse、module 系列、symbol set、build context、locator、source mod
 - `external_cache_test.go`: 外部宣言のparse失敗を同一実行内で再解析しないこととunknown理由の一貫性。
 - `package_name_regression_test.go`: 標準ライブラリの宣言package名、明示alias、workspace名の優先順位と対象build context。
 - `channel_regression_test.go`: channelの方向、定義型とalias、入れ子channelを含む要素型の同一性、互換経路の継続と非互換境界。
+- `external_alias_regression_test.go`: 標準ライブラリ型のalias経由のメソッド、連鎖・ポインタ・メソッド式、独立した定義型の除外。
