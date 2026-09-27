@@ -52,6 +52,7 @@ type engine struct {
 	callerCache     map[string][]Edge
 	definitionCache map[string]bool
 	externalCache   map[string]*Function
+	packageNames    *standardPackageNameCache
 	build           BuildContext
 }
 
@@ -68,7 +69,7 @@ func AnalyzeWithPolicy(ctx context.Context, target string, options Options, poli
 	if err != nil {
 		return nil, err
 	}
-	e := &engine{ctx: ctx, workspace: w, locator: locator, models: map[string]SourceModel{}, functions: map[string]Function{}, types: map[string]Type{}, callerCache: map[string][]Edge{}, definitionCache: map[string]bool{}, externalCache: map[string]*Function{}, build: options.Build}
+	e := &engine{ctx: ctx, workspace: w, locator: locator, models: map[string]SourceModel{}, functions: map[string]Function{}, types: map[string]Type{}, callerCache: map[string][]Edge{}, definitionCache: map[string]bool{}, externalCache: map[string]*Function{}, packageNames: newStandardPackageNameCache(sourceBuildConfig(options.Build)), build: options.Build}
 	e.stats.DiscoveredSources = len(w.Sources)
 	// Missing symbols remain valid roots so callers of a removed API can be shown.
 	if err = e.definitions(t.Package, t.Name); err != nil {
@@ -131,7 +132,7 @@ func (e *engine) load(s Source) error {
 		return err
 	}
 	s.Build = e.build
-	model, err := AnalyzeSource(s)
+	model, err := analyzeSource(s, e.packageNames)
 	if err != nil {
 		return fmt.Errorf("analyze %s: %w", s.Path, err)
 	}
@@ -262,7 +263,7 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 		external, ok := e.externalCache[id]
 		if !ok {
 			var err error
-			external, err = AnalyzeExternalFunction(pkg, name, call.Receiver, e.build)
+			external, err = analyzeExternalFunction(pkg, name, call.Receiver, e.build, e.packageNames)
 			if err != nil {
 				// 外部宣言を解析できない場合も未取得としてcacheし、unknownで探索を続ける。
 				external = nil

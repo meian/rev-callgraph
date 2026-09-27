@@ -18,6 +18,10 @@ import (
 // It deliberately avoids package-wide type checking: mismatched module versions must
 // not prevent the rest of a file from being analyzed.
 func AnalyzeSource(source Source) (SourceModel, error) {
+	return analyzeSource(source, nil)
+}
+
+func analyzeSource(source Source, packageNames *standardPackageNameCache) (SourceModel, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, source.Path, nil, parser.ParseComments|parser.AllErrors)
 	if err != nil {
@@ -38,7 +42,7 @@ func AnalyzeSource(source Source) (SourceModel, error) {
 			name = imp.Name.Name
 		} else if declared := source.PackageNames[path]; declared != "" {
 			name = declared
-		} else if declared := standardPackageName(buildConfig, path); declared != "" {
+		} else if declared := standardPackageName(buildConfig, path, packageNames); declared != "" {
 			name = declared
 		}
 		a.imports[name] = path
@@ -795,6 +799,10 @@ func AnalyzeExternalContext(packagePath, name string, buildContext BuildContext)
 // receiver is a canonical type name (optionally prefixed with *); empty selects
 // package-level functions only.
 func AnalyzeExternalFunction(packagePath, name, receiver string, buildContext BuildContext) (*Function, error) {
+	return analyzeExternalFunction(packagePath, name, receiver, buildContext, nil)
+}
+
+func analyzeExternalFunction(packagePath, name, receiver string, buildContext BuildContext, packageNames *standardPackageNameCache) (*Function, error) {
 	if packagePath == "" || packagePath == "C" {
 		return nil, nil
 	}
@@ -825,7 +833,7 @@ func AnalyzeExternalFunction(packagePath, name, receiver string, buildContext Bu
 			alias := filepath.Base(path)
 			if imp.Name != nil {
 				alias = imp.Name.Name
-			} else if declared := standardPackageName(buildConfig, path); declared != "" {
+			} else if declared := standardPackageName(buildConfig, path, packageNames); declared != "" {
 				alias = declared
 			}
 			a.imports[alias] = path
@@ -877,9 +885,39 @@ func sourceBuildConfig(buildContext BuildContext) build.Context {
 
 // standardPackageName は標準ライブラリの宣言上のpackage名を返す。
 // 宣言を取得できない場合は空文字を返し、呼び出し側で従来のpath末尾名を使う。
-func standardPackageName(buildConfig build.Context, path string) string {
+type standardPackageNameCache struct {
+	names         map[string]string
+	importPackage func(path string) (*build.Package, error)
+}
+
+func newStandardPackageNameCache(buildConfig build.Context) *standardPackageNameCache {
+	return &standardPackageNameCache{
+		names: map[string]string{},
+		importPackage: func(path string) (*build.Package, error) {
+			return buildConfig.Import(path, "", 0)
+		},
+	}
+}
+
+func (c *standardPackageNameCache) name(path string) string {
+	if name, ok := c.names[path]; ok {
+		return name
+	}
+	pkg, err := c.importPackage(path)
+	name := ""
+	if err == nil && pkg.Goroot {
+		name = pkg.Name
+	}
+	c.names[path] = name
+	return name
+}
+
+func standardPackageName(buildConfig build.Context, path string, cache *standardPackageNameCache) string {
 	if strings.Contains(strings.Split(path, "/")[0], ".") || path == "C" {
 		return ""
+	}
+	if cache != nil {
+		return cache.name(path)
 	}
 	pkg, err := buildConfig.Import(path, "", 0)
 	if err != nil || !pkg.Goroot {
