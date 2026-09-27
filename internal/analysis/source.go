@@ -883,8 +883,7 @@ func sourceBuildConfig(buildContext BuildContext) build.Context {
 	return buildConfig
 }
 
-// standardPackageName は標準ライブラリの宣言上のpackage名を返す。
-// 宣言を取得できない場合は空文字を返し、呼び出し側で従来のpath末尾名を使う。
+// standardPackageNameCache は標準ライブラリの package 名を解析実行内で保持する。
 type standardPackageNameCache struct {
 	names         map[string]string
 	importPackage func(path string) (*build.Package, error)
@@ -912,6 +911,8 @@ func (c *standardPackageNameCache) name(path string) string {
 	return name
 }
 
+// standardPackageName は標準ライブラリの宣言上のpackage名を返す。
+// 宣言を取得できない場合は空文字を返し、呼び出し側で従来のpath末尾名を使う。
 func standardPackageName(buildConfig build.Context, path string, cache *standardPackageNameCache) string {
 	if strings.Contains(strings.Split(path, "/")[0], ".") || path == "C" {
 		return ""
