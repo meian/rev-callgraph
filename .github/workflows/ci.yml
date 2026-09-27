@@ -9,10 +9,10 @@ permissions:
   contents: read
 
 jobs:
-  check:
-    name: Go quality checks
+  static-checks:
+    name: Static checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 1
     env:
       GOTOOLCHAIN: local
     steps:
@@ -30,13 +30,6 @@ jobs:
             exit 1
           fi
 
-      - name: Vet
-        run: go vet ./...
-
-      - name: Staticcheck
-        # Staticcheck 2026.2rc1 supports Go 1.27. Keep the tool version pinned.
-        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.0-rc.1 ./...
-
       - name: Check module tidiness
         shell: bash
         run: |
@@ -48,11 +41,61 @@ jobs:
             exit 1
           fi
 
-      - name: Test
-        run: go test ./...
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
 
-      - name: Test with race detector
-        run: go test -race ./...
+      - run: go vet ./...
 
-      - name: Build
-        run: go build .
+      # Staticcheck 2026.2rc1 supports Go 1.27. Keep the tool version pinned.
+      - run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.0-rc.1 ./...
+
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - run: go test ./...
+
+  test-race:
+    name: Test (race)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - run: go test -race ./...
+
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - run: go build .
