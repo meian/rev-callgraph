@@ -4,7 +4,7 @@ Go の関数やメソッドを起点に、ワークスペース内の呼び出�
 
 ## インストール
 
-Go 1.26 以降で実行します。
+Go 1.27 以降で実行します。
 
 ```bash
 go install github.com/meian/rev-callgraph@latest
