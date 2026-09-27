@@ -5,99 +5,65 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/meian/rev-callgraph/internal/callgraph"
-	"github.com/meian/rev-callgraph/internal/format"
-	"github.com/meian/rev-callgraph/internal/gomod"
-	"github.com/meian/rev-callgraph/internal/progress"
-	"github.com/meian/rev-callgraph/internal/symbol"
+	"github.com/meian/rev-callgraph/internal/analysis"
+	"github.com/meian/rev-callgraph/internal/output"
 	"github.com/spf13/cobra"
 )
 
-// rootp はコマンドラインフラグ値を保持します
-var rootp struct {
-	// Dir は解析するワークスペースのルートディレクトリ
-	// デフォルトはカレントディレクトリ
-	Dir string
-	// Format は出力形式
-	Format string
-	// JSONStyle はJSON指定時のスタイル
-	JSONStyle string
-	// MaxDepth は逆探索の最大深さ
-	MaxDepth int
-	// Progress は進捗を表示するかどうか
-	// デフォルトはfalse
-	Progress bool
-}
-
-var rootCmd = &cobra.Command{
-	Use:   "rev-callgraph <target>",
-	Short: "逆方向コールグラフ生成ツール",
-	Long:  `Goコードの逆方向コールグラフを生成するCLIツールです。`,
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		if rootp.Progress {
-			m := progress.NewMessenger(cmd.ErrOrStderr())
-			ctx = progress.WithProgress(ctx, m)
-		}
-		target := args[0]
-		dir := rootp.Dir
-		if dir == "" {
-			dir = filepath.Clean(".")
-		}
-		dir, err := filepath.Abs(dir)
-		if err != nil {
-			return fmt.Errorf("絶対パスの取得失敗: %w", err)
-		}
-
-		// targetパース
-		progress.Msgf(ctx, "parse target: %s", target)
-		f, err := symbol.ParseFunction(target)
-		if err != nil {
-			return fmt.Errorf("targetの分解失敗: %w", err)
-		}
-
-		// ディレクトリ内の全モジュールを検出
-		progress.Msgf(ctx, "scan modules in %s", dir)
-		mods, err := gomod.Scan(ctx, dir)
-		if err != nil {
-			return fmt.Errorf("モジュールスキャン失敗: %w", err)
-		}
-
-		// 対象が含まれるモジュールを検出
-		mod, err := mods.FindByFunction(ctx, f)
-		if err != nil {
-			return fmt.Errorf("targetの存在確認失敗: %w", err)
-		}
-		if mod == nil {
-			return fmt.Errorf("targetが見つかりません: %s", target)
-		}
-
-		root, err := callgraph.CallersTree(ctx, *mod, target, *mods, 0, nil, rootp.MaxDepth)
-		if err != nil {
-			return fmt.Errorf("呼び出し元の取得失敗: %w", err)
-		}
-
-		p, err := format.NewPrinter(rootp.Format, rootp.JSONStyle)
-		if err != nil {
-			return err
-		}
-		return p.Print(root)
-	},
-}
-
-// Execute はCLIを実行します
+// Execute runs the command line application.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+	if err := newRootCommand().Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func init() {
-	rootCmd.Flags().StringVar(&rootp.Dir, "dir", "", "解析するワークスペースのルートディレクトリ")
-	rootCmd.Flags().StringVar(&rootp.Format, "format", "tree", "出力形式: json|tree|dot")
-	rootCmd.Flags().StringVar(&rootp.JSONStyle, "json-style", "nested", "json出力スタイル: nested|edges")
-	rootCmd.Flags().IntVar(&rootp.MaxDepth, "max-depth", 0, "逆探索の最大深さ (0は制限なし)")
-	rootCmd.Flags().BoolVar(&rootp.Progress, "progress", false, "進捗を表示するかどうか")
+func newRootCommand() *cobra.Command {
+	var dir, format, jsonStyle, symbolSet, goos, goarch string
+	var maxDepth int
+	var progress bool
+
+	command := &cobra.Command{
+		Use:           "rev-callgraph <target>",
+		Short:         "逆方向コールグラフ生成ツール",
+		Long:          "Goコードの逆方向コールグラフを生成するCLIツールです。",
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(command *cobra.Command, args []string) error {
+			if symbolSet != string(analysis.Runtime) && symbolSet != string(analysis.Test) {
+				return fmt.Errorf("unsupported symbol set: %s", symbolSet)
+			}
+			if !output.SupportedFormat(format) {
+				return fmt.Errorf("unsupported format: %s", format)
+			}
+			root, err := filepath.Abs(dir)
+			if err != nil {
+				return fmt.Errorf("絶対パスの取得失敗: %w", err)
+			}
+			if progress {
+				fmt.Fprintf(command.ErrOrStderr(), "analyzing %s\n", args[0])
+			}
+			result, err := analysis.Analyze(command.Context(), args[0], analysis.Options{
+				Dir: root, SymbolSet: analysis.SymbolSet(symbolSet),
+				Build: analysis.BuildContext{GOOS: goos, GOARCH: goarch}, MaxDepth: maxDepth,
+			})
+			if err != nil {
+				return err
+			}
+			if progress {
+				fmt.Fprintf(command.ErrOrStderr(), "analyzed %d source files\n", result.Stats.AnalyzedSources)
+			}
+			return output.Write(command.OutOrStdout(), result, format, jsonStyle)
+		},
+	}
+	command.Flags().StringVar(&dir, "dir", ".", "解析するワークスペースのルートディレクトリ")
+	command.Flags().StringVar(&format, "format", "tree", "出力形式: json|tree|dot")
+	command.Flags().StringVar(&jsonStyle, "json-style", "nested", "json出力スタイル: nested|edges")
+	command.Flags().IntVar(&maxDepth, "max-depth", 0, "逆探索の最大深さ (0は制限なし)")
+	command.Flags().BoolVar(&progress, "progress", false, "進捗を表示するかどうか")
+	command.Flags().StringVar(&symbolSet, "symbol-set", string(analysis.Runtime), "解析対象: runtime|test")
+	command.Flags().StringVar(&goos, "goos", "", "解析対象のGOOS (省略時は実行環境)")
+	command.Flags().StringVar(&goarch, "goarch", "", "解析対象のGOARCH (省略時は実行環境)")
+	return command
 }
