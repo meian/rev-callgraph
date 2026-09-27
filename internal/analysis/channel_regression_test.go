@@ -21,6 +21,11 @@ func TestChannelDirectionCompatibility(t *testing.T) {
 		{"alias-to-send", "type Send = chan<- int", "chan int", "Send", Compatible},
 		{"alias-from-send", "type Send = chan<- int", "Send", "<-chan int", Incompatible},
 		{"different-element", "", "chan int", "chan<- string", Incompatible},
+		{"nested-different-element", "", "chan chan int", "chan chan string", Incompatible},
+		{"nested-different-direction", "", "chan chan int", "chan (<-chan int)", Incompatible},
+		{"nested-same-element-outer-direction", "", "chan chan int", "chan<- chan int", Compatible},
+		{"nested-alias-element", "type Inner = chan int", "chan Inner", "chan chan int", Compatible},
+		{"nested-distinct-named-element", "type Inner chan int", "chan Inner", "chan chan int", Incompatible},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			result := runFixture(t, map[string]string{

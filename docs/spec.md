@@ -35,6 +35,8 @@ channel 型は送信専用・受信専用・双方向を区別します。双方
 
 ### 既知の判定制限
 
+- `nil` リテラルの引数は型情報を保持できず `unknown` になる場合があります。名前付き型・interfaceを含む代入判定と併せて対応予定です（[#63](https://github.com/meian/rev-callgraph/issues/63)）。
+- 別ファイルで宣言されたchannel型からの受信値は、要素型を確定できず `unknown` になる場合があります。受信元の型定義を遅延取得する改善で追跡します（[#64](https://github.com/meian/rev-callgraph/issues/64)）。どちらも `unknown` の辺からの探索は継続します。
 - 通常のメソッド呼び出しでは receiver 式のアドレス可能性をまだ判定していません。ポインタ receiver 専用メソッドへの `T{}.M()` など、成立しない呼び出しを `compatible` として上位へ探索する場合があります（[#60](https://github.com/meian/rev-callgraph/issues/60)）。メソッド式の判定とは別の制限です。
 - 埋め込み要素を持つ interface への代入互換性は、適合を確定できる場合でも `unknown` になることがあります。`unknown` の辺からの探索は継続します（[#61](https://github.com/meian/rev-callgraph/issues/61)）。
 

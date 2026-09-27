@@ -287,6 +287,12 @@ func (e *engine) canonicalArrayElement(name string, seen map[string]bool) (strin
 		return "", false
 	}
 	seen[name] = true
+	for _, prefix := range []string{"chan ", "chan<- ", "<-chan "} {
+		if element, ok := strings.CutPrefix(name, prefix); ok {
+			base, known := e.canonicalArrayElement(element, seen)
+			return prefix + base, known
+		}
+	}
 	if strings.HasPrefix(name, "*") || strings.HasPrefix(name, "[]") {
 		prefix := "*"
 		if strings.HasPrefix(name, "[]") {
