@@ -135,7 +135,7 @@ func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) 
 		return true, true
 	}
 	if from == "nil" {
-		return strings.HasPrefix(to, "*") || strings.HasPrefix(to, "[]") || strings.HasPrefix(to, "map[") || strings.HasPrefix(to, "chan ") || strings.HasPrefix(to, "func(") || to == "error", true
+		return strings.HasPrefix(to, "*") || strings.HasPrefix(to, "[]") || strings.HasPrefix(to, "map[") || strings.HasPrefix(to, "chan ") || strings.HasPrefix(to, "chan<- ") || strings.HasPrefix(to, "<-chan ") || strings.HasPrefix(to, "func(") || to == "error", true
 	}
 	if strings.HasPrefix(from, "untyped ") {
 		switch strings.TrimPrefix(from, "untyped ") {
@@ -218,6 +218,24 @@ func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) 
 	if typ, ok := e.types[from]; ok && typ.Alias {
 		return e.assignable(typ.Underlying, to, seen)
 	}
+	fromChannel, fromIsChannel := e.channelType(from, map[string]bool{})
+	toChannel, toIsChannel := e.channelType(to, map[string]bool{})
+	if fromIsChannel && toIsChannel {
+		if fromChannel.element != toChannel.element {
+			left, leftKnown := e.canonicalArrayElement(fromChannel.element, map[string]bool{})
+			right, rightKnown := e.canonicalArrayElement(toChannel.element, map[string]bool{})
+			if !leftKnown || !rightKnown {
+				return false, false
+			}
+			if left != right {
+				return false, true
+			}
+		}
+		if fromChannel.named && toChannel.named {
+			return false, true
+		}
+		return fromChannel.direction == toChannel.direction || fromChannel.direction == "chan" && toChannel.direction != "chan", true
+	}
 	// Only reject fully known simple types. Opaque type parameters and complex
 	// expressions need further type information rather than a guessed failure.
 	if builtin(from) && builtin(to) {
@@ -232,6 +250,34 @@ func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) 
 		return false, true
 	}
 	return false, false
+}
+
+// channelType はチャネルの方向、要素型、定義型かどうかを表す。
+type channelType struct {
+	direction, element string
+	named              bool
+}
+
+// channelType は別名と定義型をたどり、チャネル型の情報を返す。
+func (e *engine) channelType(name string, seen map[string]bool) (channelType, bool) {
+	for _, direction := range []string{"chan ", "chan<- ", "<-chan "} {
+		if element, ok := strings.CutPrefix(name, direction); ok && element != "" {
+			return channelType{direction: strings.TrimSpace(direction), element: element}, true
+		}
+	}
+	if seen[name] {
+		return channelType{}, false
+	}
+	seen[name] = true
+	typ, ok := e.types[name]
+	if !ok {
+		return channelType{}, false
+	}
+	channel, ok := e.channelType(typ.Underlying, seen)
+	if ok && !typ.Alias {
+		channel.named = true
+	}
+	return channel, ok
 }
 
 // canonicalArrayElement expands aliases while preserving the identity of

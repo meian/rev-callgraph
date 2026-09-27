@@ -31,6 +31,8 @@ cgo は `import "C"` に対応し、preamble や source と同じディレクト
 
 import に明示された alias を優先し、省略時はワークスペースで収集した package 宣言名、または対象 build context で取得した標準ライブラリの package 宣言名を使います。例えば `math/rand/v2` は `rand` として認識します。宣言名を取得できない場合は import path の末尾を使います。
 
+channel 型は送信専用・受信専用・双方向を区別します。双方向から片方向への代入は型名と要素型の条件を満たす場合に許容し、方向が異なる片方向同士や片方向から双方向への代入は非互換です。
+
 ### 既知の判定制限
 
 - 通常のメソッド呼び出しでは receiver 式のアドレス可能性をまだ判定していません。ポインタ receiver 専用メソッドへの `T{}.M()` など、成立しない呼び出しを `compatible` として上位へ探索する場合があります（[#60](https://github.com/meian/rev-callgraph/issues/60)）。メソッド式の判定とは別の制限です。

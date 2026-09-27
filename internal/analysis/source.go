@@ -23,7 +23,7 @@ func AnalyzeSource(source Source) (SourceModel, error) {
 	if err != nil {
 		return SourceModel{}, fmt.Errorf("parse %s: %w", source.Path, err)
 	}
-	a := &sourceAnalyzer{source: source, fset: fset, file: file, imports: make(map[string]string), cgo: make(map[string]cDeclaration), functions: make(map[string]Signature), types: make(map[string]TypeRef), fields: make(map[string]map[string]TypeRef), constants: make(map[string]ast.Expr), globalFuncs: make(map[string]Call)}
+	a := &sourceAnalyzer{source: source, fset: fset, file: file, imports: make(map[string]string), cgo: make(map[string]cDeclaration), functions: make(map[string]Signature), types: make(map[string]TypeRef), underlying: make(map[string]string), fields: make(map[string]map[string]TypeRef), constants: make(map[string]ast.Expr), globalFuncs: make(map[string]Call)}
 	buildConfig := sourceBuildConfig(source.Build)
 	for _, imp := range file.Imports {
 		path, err := strconv.Unquote(imp.Path.Value)
@@ -133,6 +133,7 @@ type sourceAnalyzer struct {
 	cgo         map[string]cDeclaration
 	functions   map[string]Signature
 	types       map[string]TypeRef
+	underlying  map[string]string
 	fields      map[string]map[string]TypeRef
 	globals     map[string]TypeRef
 	globalFuncs map[string]Call
@@ -205,7 +206,14 @@ func (a *sourceAnalyzer) typeOf(expr ast.Expr) TypeRef {
 	case *ast.ChanType:
 		t := a.typeOf(e.Value)
 		if t.Name != "" {
-			t.Name = "chan " + t.Name
+			switch e.Dir {
+			case ast.SEND:
+				t.Name = "chan<- " + t.Name
+			case ast.RECV:
+				t.Name = "<-chan " + t.Name
+			default:
+				t.Name = "chan " + t.Name
+			}
 		}
 		return t
 	case *ast.ParenExpr:
@@ -355,6 +363,7 @@ func (a *sourceAnalyzer) analyzeType(ts *ast.TypeSpec) Type {
 			}
 		}
 	}
+	a.underlying[t.ID] = t.Underlying
 	return t
 }
 
@@ -688,6 +697,9 @@ func (a *sourceAnalyzer) exprType(expr ast.Expr, scope *sourceScope) TypeRef {
 		return a.typeOf(x.Type)
 	case *ast.UnaryExpr:
 		t := a.exprType(x.X, scope)
+		if x.Op == token.ARROW {
+			return a.receiveElement(t.Name, map[string]bool{})
+		}
 		if x.Op == token.SUB && t.Value != "" {
 			t.Value = "-" + t.Value
 		}
@@ -724,6 +736,23 @@ func (a *sourceAnalyzer) exprType(expr ast.Expr, scope *sourceScope) TypeRef {
 	case *ast.IndexExpr:
 		// The indexed type may be a map, slice or generic instantiation.
 		return TypeRef{}
+	}
+	return TypeRef{}
+}
+
+// receiveElement は受信可能なチャネルの要素型を返す。
+func (a *sourceAnalyzer) receiveElement(name string, seen map[string]bool) TypeRef {
+	for _, prefix := range []string{"chan ", "<-chan "} {
+		if element, ok := strings.CutPrefix(name, prefix); ok && element != "" {
+			return TypeRef{Name: element}
+		}
+	}
+	if seen[name] {
+		return TypeRef{}
+	}
+	seen[name] = true
+	if underlying := a.underlying[name]; underlying != "" {
+		return a.receiveElement(underlying, seen)
 	}
 	return TypeRef{}
 }
