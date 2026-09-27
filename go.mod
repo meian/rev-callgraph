@@ -1,6 +1,6 @@
 module github.com/meian/rev-callgraph
 
-go 1.26.0
+go 1.27.1
 
 require (
 	github.com/spf13/cobra v1.9.1
