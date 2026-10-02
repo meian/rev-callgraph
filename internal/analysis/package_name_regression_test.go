@@ -127,8 +127,12 @@ func TestStandardPackageNameCacheIsSharedBySourceAndExternalAnalysis(t *testing.
 	if _, err := analyzeSource(Source{Path: filepath.Join(root, "caller.go"), Package: "example.com/caller"}, cache); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := analyzeExternalFunction("api", "Target", "", BuildContext{}, cache); err != nil {
+	fn, err := analyzeExternalFunction("api", "Target", "", BuildContext{}, cache)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if fn == nil || len(fn.Params) != 1 || fn.Params[0].Type.Name != "depx/v2.T" {
+		t.Fatalf("external function: %+v", fn)
 	}
 	if calls != 1 {
 		t.Fatalf("shared standard import calls = %d, want 1", calls)
