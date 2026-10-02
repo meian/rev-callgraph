@@ -27,7 +27,19 @@ func analyzeSource(source Source, packageNames *standardPackageNameCache) (Sourc
 	if err != nil {
 		return SourceModel{}, fmt.Errorf("parse %s: %w", source.Path, err)
 	}
-	a := &sourceAnalyzer{source: source, fset: fset, file: file, imports: make(map[string]string), cgo: make(map[string]cDeclaration), functions: make(map[string]Signature), types: make(map[string]TypeRef), underlying: make(map[string]string), fields: make(map[string]map[string]TypeRef), constants: make(map[string]ast.Expr), globalFuncs: make(map[string]Call)}
+	a := &sourceAnalyzer{
+		source:      source,
+		fset:        fset,
+		file:        file,
+		imports:     make(map[string]string),
+		cgo:         make(map[string]cDeclaration),
+		functions:   make(map[string]Signature),
+		types:       make(map[string]TypeRef),
+		underlying:  make(map[string]string),
+		fields:      make(map[string]map[string]TypeRef),
+		constants:   make(map[string]ast.Expr),
+		globalFuncs: make(map[string]Call),
+	}
 	buildConfig := sourceBuildConfig(source.Build)
 	for _, imp := range file.Imports {
 		path, err := strconv.Unquote(imp.Path.Value)
@@ -117,7 +129,11 @@ func analyzeSource(source Source, packageNames *standardPackageNameCache) (Sourc
 			fn := a.function(d)
 			model.Functions = append(model.Functions, fn)
 			if fn.Receiver == "" {
-				a.functions[fn.Name] = Signature{Params: fn.Params, Results: fn.Results, Variadic: fn.Variadic}
+				a.functions[fn.Name] = Signature{
+					Params:   fn.Params,
+					Results:  fn.Results,
+					Variadic: fn.Variadic,
+				}
 			}
 		}
 	}
@@ -156,7 +172,10 @@ func (a *sourceAnalyzer) functionIndex(decls []ast.Decl, index int) int {
 
 func (a *sourceAnalyzer) location(pos token.Pos) Location {
 	p := a.fset.Position(pos)
-	return Location{File: p.Filename, Line: p.Line}
+	return Location{
+		File: p.Filename,
+		Line: p.Line,
+	}
 }
 
 func (a *sourceAnalyzer) typeOf(expr ast.Expr) TypeRef {
@@ -306,7 +325,10 @@ func (a *sourceAnalyzer) parameters(list *ast.FieldList) ([]Parameter, bool) {
 			continue
 		}
 		for _, n := range field.Names {
-			params = append(params, Parameter{Name: n.Name, Type: t})
+			params = append(params, Parameter{
+				Name: n.Name,
+				Type: t,
+			})
 		}
 	}
 	return params, variadic
@@ -315,12 +337,25 @@ func (a *sourceAnalyzer) parameters(list *ast.FieldList) ([]Parameter, bool) {
 func (a *sourceAnalyzer) signature(ft *ast.FuncType) Signature {
 	p, v := a.parameters(ft.Params)
 	r, _ := a.parameters(ft.Results)
-	return Signature{Params: p, Results: r, Variadic: v}
+	return Signature{
+		Params:   p,
+		Results:  r,
+		Variadic: v,
+	}
 }
 
 func (a *sourceAnalyzer) function(d *ast.FuncDecl) Function {
 	sig := a.signature(d.Type)
-	fn := Function{Package: a.source.Package, Name: d.Name.Name, Module: a.source.Module, Params: sig.Params, Results: sig.Results, Variadic: sig.Variadic, Location: a.location(d.Pos()), Main: a.source.PackageName == "main"}
+	fn := Function{
+		Package:  a.source.Package,
+		Name:     d.Name.Name,
+		Module:   a.source.Module,
+		Params:   sig.Params,
+		Results:  sig.Results,
+		Variadic: sig.Variadic,
+		Location: a.location(d.Pos()),
+		Main:     a.source.PackageName == "main",
+	}
 	fn.ID = a.source.Package + "." + fn.Name
 	if d.Recv != nil && len(d.Recv.List) != 0 {
 		fn.Receiver = a.typeOf(d.Recv.List[0].Type).Name
@@ -331,7 +366,13 @@ func (a *sourceAnalyzer) function(d *ast.FuncDecl) Function {
 }
 
 func (a *sourceAnalyzer) analyzeType(ts *ast.TypeSpec) Type {
-	t := Type{Module: a.source.Module, ID: a.source.Package + "." + ts.Name.Name, Fields: make(map[string]TypeRef), Methods: make(map[string]Signature), Alias: ts.Assign.IsValid()}
+	t := Type{
+		Module:  a.source.Module,
+		ID:      a.source.Package + "." + ts.Name.Name,
+		Fields:  make(map[string]TypeRef),
+		Methods: make(map[string]Signature),
+		Alias:   ts.Assign.IsValid(),
+	}
 	a.types[ts.Name.Name] = TypeRef{Name: t.ID}
 	if alias := a.typeOf(ts.Type); alias.Name != "" {
 		t.Underlying = alias.Name
@@ -378,7 +419,11 @@ type sourceScope struct {
 }
 
 func cloneScope(scope sourceScope) sourceScope {
-	child := sourceScope{vars: make(map[string]TypeRef, len(scope.vars)), funcs: make(map[string]Call, len(scope.funcs)), declared: make(map[string]bool)}
+	child := sourceScope{
+		vars:     make(map[string]TypeRef, len(scope.vars)),
+		funcs:    make(map[string]Call, len(scope.funcs)),
+		declared: make(map[string]bool),
+	}
 	for k, v := range scope.vars {
 		child.vars[k] = v
 	}
@@ -401,7 +446,11 @@ func startsSourceScope(n ast.Node) bool {
 }
 
 func (a *sourceAnalyzer) analyzeBody(fn *Function, d *ast.FuncDecl) {
-	scope := sourceScope{vars: make(map[string]TypeRef), funcs: make(map[string]Call), declared: make(map[string]bool)}
+	scope := sourceScope{
+		vars:     make(map[string]TypeRef),
+		funcs:    make(map[string]Call),
+		declared: make(map[string]bool),
+	}
 	for name, typ := range a.globals {
 		scope.vars[name] = typ
 	}
@@ -542,26 +591,46 @@ func (a *sourceAnalyzer) functionValue(expr ast.Expr, scope *sourceScope) (Call,
 					path = dot
 				}
 			}
-			return Call{Package: path, Name: x.Name}, true
+			return Call{
+				Package: path,
+				Name:    x.Name,
+			}, true
 		}
 	case *ast.SelectorExpr:
 		if id, ok := x.X.(*ast.Ident); ok {
 			if path := a.importPath(id.Name, scope); path != "" {
-				return Call{Package: path, Name: x.Sel.Name}, true
+				return Call{
+					Package: path,
+					Name:    x.Sel.Name,
+				}, true
 			}
 		}
 		if recv := a.methodExpressionReceiver(x.X, scope); recv.Name != "" {
-			return Call{Package: packageFromType(recv.Name), Receiver: recv.Name, Name: x.Sel.Name, MethodExpression: true}, true
+			return Call{
+				Package:          packageFromType(recv.Name),
+				Receiver:         recv.Name,
+				Name:             x.Sel.Name,
+				MethodExpression: true,
+			}, true
 		}
 		if recv := a.exprType(x.X, scope).Name; recv != "" && recv != "any" {
-			return Call{Package: packageFromType(recv), Receiver: recv, Name: x.Sel.Name}, true
+			return Call{
+				Package:  packageFromType(recv),
+				Receiver: recv,
+				Name:     x.Sel.Name,
+			}, true
 		}
 	}
 	return Call{}, false
 }
 
 func (a *sourceAnalyzer) call(expr *ast.CallExpr, caller string, scope *sourceScope) Call {
-	c := Call{Caller: caller, Location: a.location(expr.Pos()), Spread: expr.Ellipsis.IsValid(), Indirect: true}
+	c := Call{
+		Caller:   caller,
+		Location: a.location(expr.Pos()),
+		Spread:   expr.Ellipsis.IsValid(),
+		Indirect: true,
+	}
 	for _, arg := range expr.Args {
 		c.Arguments = append(c.Arguments, a.exprType(arg, scope))
 	}
@@ -674,15 +743,30 @@ func (a *sourceAnalyzer) exprType(expr ast.Expr, scope *sourceScope) TypeRef {
 	case *ast.BasicLit:
 		switch x.Kind {
 		case token.STRING:
-			return TypeRef{Name: "untyped string", Value: x.Value}
+			return TypeRef{
+				Name:  "untyped string",
+				Value: x.Value,
+			}
 		case token.CHAR:
-			return TypeRef{Name: "untyped rune", Value: x.Value}
+			return TypeRef{
+				Name:  "untyped rune",
+				Value: x.Value,
+			}
 		case token.INT:
-			return TypeRef{Name: "untyped int", Value: x.Value}
+			return TypeRef{
+				Name:  "untyped int",
+				Value: x.Value,
+			}
 		case token.FLOAT:
-			return TypeRef{Name: "untyped float", Value: x.Value}
+			return TypeRef{
+				Name:  "untyped float",
+				Value: x.Value,
+			}
 		case token.IMAG:
-			return TypeRef{Name: "untyped complex", Value: x.Value}
+			return TypeRef{
+				Name:  "untyped complex",
+				Value: x.Value,
+			}
 		}
 	case *ast.Ident:
 		if t, ok := scope.vars[x.Name]; ok {
@@ -692,7 +776,10 @@ func (a *sourceAnalyzer) exprType(expr ast.Expr, scope *sourceScope) TypeRef {
 			return t
 		}
 		if x.Name == "true" || x.Name == "false" {
-			return TypeRef{Name: "untyped bool", Value: x.Name}
+			return TypeRef{
+				Name:  "untyped bool",
+				Value: x.Name,
+			}
 		}
 		if builtinType(x.Name) {
 			return TypeRef{Name: x.Name}
@@ -727,7 +814,10 @@ func (a *sourceAnalyzer) exprType(expr ast.Expr, scope *sourceScope) TypeRef {
 		if fields := a.fields[base]; fields != nil {
 			return fields[x.Sel.Name]
 		}
-		return TypeRef{FieldBase: &baseRef, FieldName: x.Sel.Name}
+		return TypeRef{
+			FieldBase: &baseRef,
+			FieldName: x.Sel.Name,
+		}
 	case *ast.CallExpr:
 		if id, ok := x.Fun.(*ast.Ident); ok {
 			if builtinType(id.Name) && len(x.Args) == 1 {
@@ -791,7 +881,11 @@ func AnalyzeExternalContext(packagePath, name string, buildContext BuildContext)
 	if err != nil || function == nil {
 		return nil, err
 	}
-	return &Signature{Params: function.Params, Results: function.Results, Variadic: function.Variadic}, nil
+	return &Signature{
+		Params:   function.Params,
+		Results:  function.Results,
+		Variadic: function.Variadic,
+	}, nil
 }
 
 // AnalyzeExternalFunction identifies a standard-library function or a method
@@ -824,7 +918,11 @@ func analyzeExternalFunction(packagePath, name, receiver string, buildContext Bu
 		if err != nil {
 			return nil, fmt.Errorf("parse external %s: %w", path, err)
 		}
-		a := &sourceAnalyzer{source: Source{Package: packagePath}, imports: make(map[string]string), fset: fset}
+		a := &sourceAnalyzer{
+			source:  Source{Package: packagePath},
+			imports: make(map[string]string),
+			fset:    fset,
+		}
 		for _, imp := range file.Imports {
 			path, err := strconv.Unquote(imp.Path.Value)
 			if err != nil {
@@ -1030,7 +1128,10 @@ func (a *sourceAnalyzer) parseCDeclarations(content, kind string) {
 		if strings.TrimSpace(match[1]) != "void" {
 			sig.Results = []Parameter{{Type: cType(match[1])}}
 		}
-		a.cgo[name] = cDeclaration{signature: sig, kind: kind}
+		a.cgo[name] = cDeclaration{
+			signature: sig,
+			kind:      kind,
+		}
 	}
 }
 

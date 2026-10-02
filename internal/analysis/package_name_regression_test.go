@@ -53,7 +53,11 @@ func TestStandardImportNameUsesTargetBuildContext(t *testing.T) {
 	original := build.Default
 	build.Default.GOROOT = root
 	t.Cleanup(func() { build.Default = original })
-	model, err := AnalyzeSource(Source{Path: filepath.Join(root, "caller.go"), Package: "example.com/caller", Build: BuildContext{Tags: []string{"selected"}}})
+	model, err := AnalyzeSource(Source{
+		Path:    filepath.Join(root, "caller.go"),
+		Package: "example.com/caller",
+		Build:   BuildContext{Tags: []string{"selected"}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +78,11 @@ func TestImportNamePriorityAndFallback(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := fixture(t, map[string]string{"caller.go": "package caller\nimport " + tc.spec + "\n"})
-			model, err := AnalyzeSource(Source{Path: filepath.Join(root, "caller.go"), Package: "example.com/caller", PackageNames: tc.names})
+			model, err := AnalyzeSource(Source{
+				Path:         filepath.Join(root, "caller.go"),
+				Package:      "example.com/caller",
+				PackageNames: tc.names,
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -92,7 +100,10 @@ func TestStandardPackageNameCacheCachesSuccessfulAndEmptyResults(t *testing.T) {
 		importPackage: func(path string) (*build.Package, error) {
 			calls[path]++
 			if path == "found" {
-				return &build.Package{Name: "declared", Goroot: true}, nil
+				return &build.Package{
+					Name:   "declared",
+					Goroot: true,
+				}, nil
 			}
 			return nil, errors.New("missing package")
 		},
@@ -124,7 +135,10 @@ func TestStandardPackageNameCacheIsSharedBySourceAndExternalAnalysis(t *testing.
 		calls++
 		return buildConfig.Import(path, "", 0)
 	}
-	if _, err := analyzeSource(Source{Path: filepath.Join(root, "caller.go"), Package: "example.com/caller"}, cache); err != nil {
+	if _, err := analyzeSource(Source{
+		Path:    filepath.Join(root, "caller.go"),
+		Package: "example.com/caller",
+	}, cache); err != nil {
 		t.Fatal(err)
 	}
 	fn, err := analyzeExternalFunction("api", "Target", "", BuildContext{}, cache)

@@ -9,14 +9,24 @@ import (
 )
 
 func (e *engine) compatibility(call Call, callee *Function, res Resolution) Compatibility {
-	c := Compatibility{Status: Compatible, Issues: []Issue{}}
+	c := Compatibility{
+		Status: Compatible,
+		Issues: []Issue{},
+	}
 	issue := func(kind, message string) {
 		c.Status = Incompatible
-		c.Issues = append(c.Issues, Issue{Kind: kind, Message: message})
+		c.Issues = append(c.Issues, Issue{
+			Kind:    kind,
+			Message: message,
+		})
 	}
 	var sig *Signature
 	if callee != nil {
-		sig = &Signature{Params: callee.Params, Results: callee.Results, Variadic: callee.Variadic}
+		sig = &Signature{
+			Params:   callee.Params,
+			Results:  callee.Results,
+			Variadic: callee.Variadic,
+		}
 	} else {
 		sig = call.Signature
 	}
@@ -31,7 +41,11 @@ func (e *engine) compatibility(call Call, callee *Function, res Resolution) Comp
 	uncertain := false
 	if call.MethodExpression && callee != nil {
 		// メソッド式の第一引数は、昇格元の宣言型ではなく式のreceiver型で判定する。
-		sig = &Signature{Params: append([]Parameter{{Type: TypeRef{Name: call.Receiver}}}, sig.Params...), Results: sig.Results, Variadic: sig.Variadic}
+		sig = &Signature{
+			Params:   append([]Parameter{{Type: TypeRef{Name: call.Receiver}}}, sig.Params...),
+			Results:  sig.Results,
+			Variadic: sig.Variadic,
+		}
 		if _, found, known := e.interfaceMethod(call.Receiver, call.Name); known {
 			if !found {
 				issue("method-expression", "method is not in the expression receiver's method set")
@@ -40,7 +54,10 @@ func (e *engine) compatibility(call Call, callee *Function, res Resolution) Comp
 			// 標準ライブラリの型定義は未読込なので、宣言のreceiverと照合する。
 			declared := callee.Receiver
 			receiver := e.canonicalAliasReceiver(call.Receiver)
-			if receiver != declared && !(strings.HasPrefix(receiver, "*") && !strings.HasPrefix(declared, "*") && receiverID(receiver) == declared) {
+			if receiver != declared &&
+				!(strings.HasPrefix(receiver, "*") &&
+					!strings.HasPrefix(declared, "*") &&
+					receiverID(receiver) == declared) {
 				issue("method-expression", "method is not in the expression receiver's method set")
 			}
 		} else {
@@ -136,7 +153,14 @@ func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) 
 		return true, true
 	}
 	if from == "nil" {
-		return strings.HasPrefix(to, "*") || strings.HasPrefix(to, "[]") || strings.HasPrefix(to, "map[") || strings.HasPrefix(to, "chan ") || strings.HasPrefix(to, "chan<- ") || strings.HasPrefix(to, "<-chan ") || strings.HasPrefix(to, "func(") || to == "error", true
+		return strings.HasPrefix(to, "*") ||
+			strings.HasPrefix(to, "[]") ||
+			strings.HasPrefix(to, "map[") ||
+			strings.HasPrefix(to, "chan ") ||
+			strings.HasPrefix(to, "chan<- ") ||
+			strings.HasPrefix(to, "<-chan ") ||
+			strings.HasPrefix(to, "func(") ||
+			to == "error", true
 	}
 	if strings.HasPrefix(from, "untyped ") {
 		switch strings.TrimPrefix(from, "untyped ") {
@@ -160,7 +184,10 @@ func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) 
 			return to == "complex64" || to == "complex128", true
 		}
 	}
-	if (from == "byte" && to == "uint8") || (from == "uint8" && to == "byte") || (from == "rune" && to == "int32") || (from == "int32" && to == "rune") {
+	if (from == "byte" && to == "uint8") ||
+		(from == "uint8" && to == "byte") ||
+		(from == "rune" && to == "int32") ||
+		(from == "int32" && to == "rune") {
 		return true, true
 	}
 	key := from + "\x00" + to
@@ -190,7 +217,9 @@ func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) 
 				if !found {
 					return false, true
 				}
-				if len(actual.Params) != len(signature.Params) || len(actual.Results) != len(signature.Results) || actual.Variadic != signature.Variadic {
+				if len(actual.Params) != len(signature.Params) ||
+					len(actual.Results) != len(signature.Results) ||
+					actual.Variadic != signature.Variadic {
 					return false, true
 				}
 				for i, p := range actual.Params {
@@ -235,7 +264,8 @@ func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) 
 		if fromChannel.named && toChannel.named {
 			return false, true
 		}
-		return fromChannel.direction == toChannel.direction || fromChannel.direction == "chan" && toChannel.direction != "chan", true
+		return fromChannel.direction == toChannel.direction ||
+			fromChannel.direction == "chan" && toChannel.direction != "chan", true
 	}
 	// Only reject fully known simple types. Opaque type parameters and complex
 	// expressions need further type information rather than a guessed failure.
@@ -247,7 +277,8 @@ func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) 
 		_, b := e.types[receiverID(to)]
 		return false, a && b
 	}
-	if strings.HasPrefix(from, "*") != strings.HasPrefix(to, "*") && strings.TrimPrefix(from, "*") == strings.TrimPrefix(to, "*") {
+	if strings.HasPrefix(from, "*") != strings.HasPrefix(to, "*") &&
+		strings.TrimPrefix(from, "*") == strings.TrimPrefix(to, "*") {
 		return false, true
 	}
 	return false, false
@@ -263,7 +294,10 @@ type channelType struct {
 func (e *engine) channelType(name string, seen map[string]bool) (channelType, bool) {
 	for _, direction := range []string{"chan ", "chan<- ", "<-chan "} {
 		if element, ok := strings.CutPrefix(name, direction); ok && element != "" {
-			return channelType{direction: strings.TrimSpace(direction), element: element}, true
+			return channelType{
+				direction: strings.TrimSpace(direction),
+				element:   element,
+			}, true
 		}
 	}
 	if seen[name] {
@@ -343,7 +377,11 @@ func (e *engine) interfaceMethod(from, name string) (Signature, bool, bool) {
 		pointer bool
 		seen    map[string]bool
 	}
-	queue := []candidate{{name: receiverID(from), pointer: strings.HasPrefix(from, "*"), seen: map[string]bool{}}}
+	queue := []candidate{{
+		name:    receiverID(from),
+		pointer: strings.HasPrefix(from, "*"),
+		seen:    map[string]bool{},
+	}}
 	for len(queue) > 0 {
 		var next []candidate
 		var matches []Signature
@@ -380,7 +418,11 @@ func (e *engine) interfaceMethod(from, name string) (Signature, bool, bool) {
 			}
 			if typ.Alias && typ.Underlying != "" {
 				underlying := typ.Underlying
-				next = append(next, candidate{name: receiverID(underlying), pointer: item.pointer || strings.HasPrefix(underlying, "*"), seen: seen})
+				next = append(next, candidate{
+					name:    receiverID(underlying),
+					pointer: item.pointer || strings.HasPrefix(underlying, "*"),
+					seen:    seen,
+				})
 				continue
 			}
 			if _, field := typ.Fields[name]; field {
@@ -389,14 +431,22 @@ func (e *engine) interfaceMethod(from, name string) (Signature, bool, bool) {
 			if f, exists := e.functions[item.name+"#"+name]; exists {
 				declarations++
 				if !strings.HasPrefix(f.Receiver, "*") || item.pointer {
-					matches = append(matches, Signature{Params: f.Params, Results: f.Results, Variadic: f.Variadic})
+					matches = append(matches, Signature{
+						Params:   f.Params,
+						Results:  f.Results,
+						Variadic: f.Variadic,
+					})
 				}
 			} else if signature, exists := typ.Methods[name]; exists {
 				declarations++
 				matches = append(matches, signature)
 			}
 			for _, embedded := range typ.Embedded {
-				next = append(next, candidate{name: receiverID(embedded.Name), pointer: item.pointer || strings.HasPrefix(embedded.Name, "*"), seen: seen})
+				next = append(next, candidate{
+					name:    receiverID(embedded.Name),
+					pointer: item.pointer || strings.HasPrefix(embedded.Name, "*"),
+					seen:    seen,
+				})
 			}
 		}
 		if unknown {
@@ -445,7 +495,10 @@ func (e *engine) argumentAssignable(arg TypeRef, to string) (bool, bool) {
 		base = t.Underlying
 	}
 	match, known := e.assignable(arg.Name, base, map[string]bool{})
-	if numeric(base) && (arg.Name == "untyped int" || arg.Name == "untyped rune" || arg.Name == "untyped float" || arg.Name == "untyped complex") {
+	if numeric(base) && (arg.Name == "untyped int" ||
+		arg.Name == "untyped rune" ||
+		arg.Name == "untyped float" ||
+		arg.Name == "untyped complex") {
 		match, known = true, true
 	}
 	if !match {

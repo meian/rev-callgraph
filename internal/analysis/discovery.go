@@ -70,7 +70,12 @@ func Discover(ctx context.Context, options Options) (*Workspace, error) {
 		if parsed.Module == nil {
 			return fmt.Errorf("%s: missing module directive", path)
 		}
-		m := Module{Path: parsed.Module.Mod.Path, Dir: filepath.Dir(path), Requires: make(map[string]string), Replaces: make(map[string][]Replacement)}
+		m := Module{
+			Path:     parsed.Module.Mod.Path,
+			Dir:      filepath.Dir(path),
+			Requires: make(map[string]string),
+			Replaces: make(map[string][]Replacement),
+		}
 		for _, req := range parsed.Require {
 			m.Requires[req.Mod.Path] = req.Mod.Version
 		}
@@ -164,7 +169,13 @@ func Discover(ctx context.Context, options Options) (*Workspace, error) {
 		if test && strings.HasSuffix(file.Name.Name, "_test") {
 			pkg += "_test"
 		}
-		w.Sources = append(w.Sources, Source{Path: path, Package: pkg, PackageName: file.Name.Name, Module: module, Test: test})
+		w.Sources = append(w.Sources, Source{
+			Path:        path,
+			Package:     pkg,
+			PackageName: file.Name.Name,
+			Module:      module,
+			Test:        test,
+		})
 		return nil
 	})
 	if err != nil {
@@ -297,7 +308,10 @@ func NewLocator(w *Workspace) (Locator, error) {
 	if w == nil {
 		return nil, fmt.Errorf("nil workspace")
 	}
-	index := &indexedLocator{definitions: make(map[string]map[string][]Source), callers: make(map[string][]Source)}
+	index := &indexedLocator{
+		definitions: make(map[string]map[string][]Source),
+		callers:     make(map[string][]Source),
+	}
 	for _, source := range w.Sources {
 		data, err := os.ReadFile(source.Path)
 		if err != nil {

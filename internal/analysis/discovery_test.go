@@ -34,8 +34,15 @@ func TestDiscoverModulesBuildContextAndSymbolSet(t *testing.T) {
 	writeDiscoveryFixture(t, root, "common/nested/nested.go", "package nested\nfunc Nested() {}\n")
 	writeDiscoveryFixture(t, root, "yaml/go.mod", "module gopkg.in/yaml.v2\n\ngo 1.23\n")
 	writeDiscoveryFixture(t, root, "yaml/yaml.go", "package yaml\nfunc Parse() {}\n")
-	build := BuildContext{GOOS: "linux", GOARCH: "amd64"}
-	w, err := Discover(context.Background(), Options{Dir: root, SymbolSet: Runtime, Build: build})
+	build := BuildContext{
+		GOOS:   "linux",
+		GOARCH: "amd64",
+	}
+	w, err := Discover(context.Background(), Options{
+		Dir:       root,
+		SymbolSet: Runtime,
+		Build:     build,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +68,11 @@ func TestDiscoverModulesBuildContextAndSymbolSet(t *testing.T) {
 	if got := sourceNames(w.Sources); !equalStrings(got, []string{"a.go", "linux_amd64.go", "main.go", "nested.go", "yaml.go"}) {
 		t.Errorf("runtime sources = %v", got)
 	}
-	w, err = Discover(context.Background(), Options{Dir: root, SymbolSet: Test, Build: build})
+	w, err = Discover(context.Background(), Options{
+		Dir:       root,
+		SymbolSet: Test,
+		Build:     build,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +250,10 @@ func TestDiscoverExplicitBuildTags(t *testing.T) {
 	writeDiscoveryFixture(t, root, "go.mod", "module example.com/m\n\ngo 1.23\n")
 	writeDiscoveryFixture(t, root, "tagged.go", "//go:build custom\n\npackage m\n")
 	writeDiscoveryFixture(t, root, "ordinary.go", "package m\n")
-	w, err := Discover(context.Background(), Options{Dir: root, Build: BuildContext{Tags: []string{"custom"}}})
+	w, err := Discover(context.Background(), Options{
+		Dir:   root,
+		Build: BuildContext{Tags: []string{"custom"}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,14 +267,26 @@ func TestDiscoverCgoContext(t *testing.T) {
 	writeDiscoveryFixture(t, root, "go.mod", "module example.com/m\n\ngo 1.23\n")
 	writeDiscoveryFixture(t, root, "ordinary.go", "package m\n")
 	writeDiscoveryFixture(t, root, "cgo.go", "package m\n/* int f(void); */\nimport \"C\"\nfunc F() { C.f() }\n")
-	without, err := Discover(context.Background(), Options{Dir: root, Build: BuildContext{CgoSet: true, Cgo: false}})
+	without, err := Discover(context.Background(), Options{
+		Dir: root,
+		Build: BuildContext{
+			CgoSet: true,
+			Cgo:    false,
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := sourceNames(without.Sources); !equalStrings(got, []string{"ordinary.go"}) {
 		t.Errorf("cgo disabled sources = %v", got)
 	}
-	with, err := Discover(context.Background(), Options{Dir: root, Build: BuildContext{CgoSet: true, Cgo: true}})
+	with, err := Discover(context.Background(), Options{
+		Dir: root,
+		Build: BuildContext{
+			CgoSet: true,
+			Cgo:    true,
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

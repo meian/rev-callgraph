@@ -12,7 +12,11 @@ func parseSourceForTest(t *testing.T, body string) SourceModel {
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	model, err := AnalyzeSource(Source{Path: path, Package: "example.com/app", PackageName: "app"})
+	model, err := AnalyzeSource(Source{
+		Path:        path,
+		Package:     "example.com/app",
+		PackageName: "app",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +167,11 @@ func F() { C.from_preamble(1); C.from_header(2); C.missing(3) }
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	model, err := AnalyzeSource(Source{Path: path, Package: "example.com/app", PackageName: "app"})
+	model, err := AnalyzeSource(Source{
+		Path:        path,
+		Package:     "example.com/app",
+		PackageName: "app",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,11 +257,17 @@ func Caller() {
 }
 
 func TestAnalyzeExternalContextTargetOS(t *testing.T) {
-	linux, err := AnalyzeExternalContext("syscall", "Gettid", BuildContext{GOOS: "linux", GOARCH: "amd64"})
+	linux, err := AnalyzeExternalContext("syscall", "Gettid", BuildContext{
+		GOOS:   "linux",
+		GOARCH: "amd64",
+	})
 	if err != nil || linux == nil {
 		t.Fatalf("linux Gettid: %+v, %v", linux, err)
 	}
-	darwin, err := AnalyzeExternalContext("syscall", "Gettid", BuildContext{GOOS: "darwin", GOARCH: "arm64"})
+	darwin, err := AnalyzeExternalContext("syscall", "Gettid", BuildContext{
+		GOOS:   "darwin",
+		GOARCH: "arm64",
+	})
 	if err != nil || darwin != nil {
 		t.Fatalf("darwin Gettid: %+v, %v", darwin, err)
 	}

@@ -45,8 +45,13 @@ func newRootCommand() *cobra.Command {
 				fmt.Fprintf(command.ErrOrStderr(), "analyzing %s\n", args[0])
 			}
 			result, err := analysis.Analyze(command.Context(), args[0], analysis.Options{
-				Dir: root, SymbolSet: analysis.SymbolSet(symbolSet),
-				Build: analysis.BuildContext{GOOS: goos, GOARCH: goarch}, MaxDepth: maxDepth,
+				Dir:       root,
+				SymbolSet: analysis.SymbolSet(symbolSet),
+				Build: analysis.BuildContext{
+					GOOS:   goos,
+					GOARCH: goarch,
+				},
+				MaxDepth: maxDepth,
 			})
 			if err != nil {
 				return err
