@@ -31,14 +31,24 @@ func TestMissingSymbolPrefersCallerModule(t *testing.T) {
 
 func TestDefinitionLoadFailureDoesNotCacheCompletion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "target.go")
-	source := Source{Path: path, Package: "example.com/p", PackageName: "p"}
+	source := Source{
+		Path:        path,
+		Package:     "example.com/p",
+		PackageName: "p",
+	}
 	readyPath := filepath.Join(filepath.Dir(path), "ready.go")
 	if err := os.WriteFile(readyPath, []byte("package p\nfunc Ready() { Target() }\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	e := &engine{
-		ctx:             context.Background(),
-		locator:         retryLocator{[]Source{{Path: readyPath, Package: source.Package}, source}},
+		ctx: context.Background(),
+		locator: retryLocator{sources: []Source{
+			{
+				Path:    readyPath,
+				Package: source.Package,
+			},
+			source,
+		}},
 		models:          map[string]SourceModel{},
 		functions:       map[string]Function{},
 		types:           map[string]Type{},
@@ -67,5 +77,68 @@ func TestDefinitionLoadFailureDoesNotCacheCompletion(t *testing.T) {
 	}
 	if e.stats.LocatorLookups != 2 || e.stats.CacheHits != 2 {
 		t.Fatalf("completed lookup was not reused: %+v", e.stats)
+	}
+}
+
+func TestMissingSymbolChecksAllPackageSeries(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		series   []string
+		wantID   string
+		wantKind string
+	}{
+		{
+			name:     "compatible last",
+			series:   []string{"v0", "v1"},
+			wantID:   "example.com/p.Missing",
+			wantKind: "missing-symbol",
+		},
+		{
+			name:     "compatible first",
+			series:   []string{"v1", "v0"},
+			wantID:   "example.com/p.Missing",
+			wantKind: "missing-symbol",
+		},
+		{
+			name:     "all incompatible",
+			series:   []string{"v0", "v0"},
+			wantKind: "different-module-series",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := &Workspace{Modules: []Module{{
+				Path:     "example.com/app",
+				Requires: map[string]string{"example.com/p": "v1.0.0"},
+			}}}
+			for _, series := range tc.series {
+				w.Packages = append(w.Packages, Package{
+					Path:   "example.com/p",
+					Module: len(w.Modules),
+				})
+				w.Modules = append(w.Modules, Module{
+					Path:   "example.com/p",
+					Series: series,
+				})
+			}
+			e := &engine{
+				workspace:       w,
+				locator:         retryLocator{},
+				definitionCache: map[string]bool{},
+			}
+			id, resolution, fn, err := e.resolve(Function{Module: 0}, Call{
+				Package: "example.com/p",
+				Name:    "Missing",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantStatus := Unknown
+			if tc.wantKind == "different-module-series" {
+				wantStatus = External
+			}
+			if id != tc.wantID || resolution.Status != wantStatus || resolution.Kind != tc.wantKind || fn != nil {
+				t.Fatalf("resolution = %q %+v %+v", id, resolution, fn)
+			}
+		})
 	}
 }

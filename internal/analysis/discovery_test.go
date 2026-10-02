@@ -84,20 +84,76 @@ func TestDiscoverModulesBuildContextAndSymbolSet(t *testing.T) {
 			t.Errorf("external test package = %q", source.Package)
 		}
 	}
-	packages := make(map[string]Package)
+	type packageKey struct {
+		path   string
+		module int
+	}
+	packages := make(map[packageKey]Package)
+	commonModule := -1
 	for _, pkg := range w.Packages {
-		packages[pkg.Path] = pkg
+		key := packageKey{
+			path:   pkg.Path,
+			module: pkg.Module,
+		}
+		if _, exists := packages[key]; exists {
+			t.Fatalf("duplicate package %v", key)
+		}
+		packages[key] = pkg
+		if pkg.Path == "example.com/common" {
+			commonModule = pkg.Module
+		}
 		for _, source := range pkg.Sources {
 			if source.Package != pkg.Path || source.Module != pkg.Module {
 				t.Errorf("package %q contains foreign source %+v", pkg.Path, source)
 			}
 		}
 	}
-	if got := len(packages["example.com/common"].Sources); got != 3 {
+	if commonModule < 0 {
+		t.Fatal("common package not found")
+	}
+	regularKey := packageKey{
+		path:   "example.com/common",
+		module: commonModule,
+	}
+	externalKey := packageKey{
+		path:   "example.com/common_test",
+		module: commonModule,
+	}
+	if got := len(packages[regularKey].Sources); got != 3 {
 		t.Errorf("internal test package sources = %d, want 3", got)
 	}
-	if got := len(packages["example.com/common_test"].Sources); got != 1 {
+	if got := len(packages[externalKey].Sources); got != 1 {
 		t.Errorf("external test package sources = %d, want 1", got)
+	}
+}
+
+func TestDiscoverSeparatesModulesWithSamePackagePath(t *testing.T) {
+	root := fixture(t, map[string]string{
+		"a/go.mod": "module example.com/p\ngo 1.24\n",
+		"a/p.go":   "package p\nfunc Same() {}\n",
+		"b/go.mod": "module example.com/p\ngo 1.24\n",
+		"b/p.go":   "package p\nfunc Same() {}\n",
+	})
+	w, err := Discover(context.Background(), Options{Dir: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(w.Packages) != 2 || len(w.Modules) != 2 {
+		t.Fatalf("packages/modules = %d/%d, want 2/2", len(w.Packages), len(w.Modules))
+	}
+	seenModules := make(map[int]bool)
+	for _, pkg := range w.Packages {
+		if pkg.Module < 0 || pkg.Module >= len(w.Modules) || seenModules[pkg.Module] {
+			t.Fatalf("invalid or duplicate module: %+v", pkg)
+		}
+		seenModules[pkg.Module] = true
+		if pkg.Path != "example.com/p" || len(pkg.Sources) != 1 || pkg.Dir != w.Modules[pkg.Module].Dir {
+			t.Fatalf("incorrect package ownership: %+v", pkg)
+		}
+		source := pkg.Sources[0]
+		if source.Module != pkg.Module || source.Path != filepath.Join(pkg.Dir, "p.go") {
+			t.Fatalf("package contains source from another module: %+v", pkg)
+		}
 	}
 }
 

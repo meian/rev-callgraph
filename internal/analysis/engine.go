@@ -298,19 +298,24 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 			}, nil, nil
 		}
 	}
+	packageFound := false
 	for _, p := range e.workspace.Packages {
-		if p.Path == pkg {
-			if !e.sameSeries(caller.Module, p.Module) {
-				return "", Resolution{
-					Status: External,
-					Kind:   "different-module-series",
-				}, nil, nil
-			}
+		if p.Path != pkg {
+			continue
+		}
+		packageFound = true
+		if e.sameSeries(caller.Module, p.Module) {
 			return id, Resolution{
 				Status: Unknown,
 				Kind:   "missing-symbol",
 			}, nil, nil
 		}
+	}
+	if packageFound {
+		return "", Resolution{
+			Status: External,
+			Kind:   "different-module-series",
+		}, nil, nil
 	}
 	// Read a declaration before marking a standard-library symbol external.
 	if !strings.Contains(strings.Split(pkg, "/")[0], ".") && pkg != "C" {

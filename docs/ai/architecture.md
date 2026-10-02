@@ -30,7 +30,7 @@ locator と関数・型の ID は引き続き従来の package path を使う。
 
 caller 計算結果は同じ engine の固定された候補集合に対して再利用する。後続の別条件や追加発見された package に持ち越さない。逆方向 traversal の cycle は現在経路の ancestors、max depth は現在経路の深さで判定し、別経路で同じ symbol に到達しても分岐を残す。表示用の同等辺だけをまとめる。
 
-定義が見つからない場合の package 判定は、同じ path のうち caller の所有 module を優先し、`unknown/missing-symbol` を返す。caller の module に一致する package がない場合に限り、別 module との系列判定を行う。
+定義が見つからない場合の package 判定は、同じ path のうち caller の所有 module を優先し、`unknown/missing-symbol` を返す。caller の module に一致する package がない場合は、同じ path の候補から互換系列の module を探し、1 つでもあれば `unknown/missing-symbol` を返す。候補があり、どれも非互換系列だった場合だけ `external/different-module-series` とする。
 
 `Discover` は `go.mod` を収集し、nested module 境界を確定してから、symbol set と build context に合う Go source を列挙する。module path の major suffix を優先し、suffix がなければ workspace の require major から source module の系列を推定する。一意でない系列は空値のままとする。`replace` は旧 version・新 path・新 version を保持し、現在の require に適用できるものだけを解決と系列推定に利用する。解析時には major の完全一致を要求するが minor・patch は要求しない。`v0` と `v1` は分離する。
 
