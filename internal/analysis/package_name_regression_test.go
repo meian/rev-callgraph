@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"errors"
 	"go/build"
 	"path/filepath"
 	"testing"
@@ -81,5 +82,59 @@ func TestImportNamePriorityAndFallback(t *testing.T) {
 				t.Fatalf("import name priority: %+v", model.Imports)
 			}
 		})
+	}
+}
+
+func TestStandardPackageNameCacheCachesSuccessfulAndEmptyResults(t *testing.T) {
+	calls := map[string]int{}
+	cache := &standardPackageNameCache{
+		names: map[string]string{},
+		importPackage: func(path string) (*build.Package, error) {
+			calls[path]++
+			if path == "found" {
+				return &build.Package{Name: "declared", Goroot: true}, nil
+			}
+			return nil, errors.New("missing package")
+		},
+	}
+	for _, path := range []string{"found", "found", "missing", "missing"} {
+		standardPackageName(build.Context{}, path, cache)
+	}
+	if calls["found"] != 1 || calls["missing"] != 1 {
+		t.Fatalf("Import calls: %+v", calls)
+	}
+	if cache.names["found"] != "declared" || cache.names["missing"] != "" {
+		t.Fatalf("cached names: %+v", cache.names)
+	}
+}
+
+func TestStandardPackageNameCacheIsSharedBySourceAndExternalAnalysis(t *testing.T) {
+	root := fixture(t, map[string]string{
+		"src/depx/v2/dep.go": "package dep\ntype T struct{}\n",
+		"src/api/api.go":     "package api\nimport \"depx/v2\"\nfunc Target(dep.T){}\n",
+		"caller.go":          "package caller\nimport \"depx/v2\"\nfunc Caller(dep.T){}\n",
+	})
+	original := build.Default
+	build.Default.GOROOT = root
+	t.Cleanup(func() { build.Default = original })
+	buildConfig := sourceBuildConfig(BuildContext{})
+	calls := 0
+	cache := newStandardPackageNameCache(buildConfig)
+	cache.importPackage = func(path string) (*build.Package, error) {
+		calls++
+		return buildConfig.Import(path, "", 0)
+	}
+	if _, err := analyzeSource(Source{Path: filepath.Join(root, "caller.go"), Package: "example.com/caller"}, cache); err != nil {
+		t.Fatal(err)
+	}
+	fn, err := analyzeExternalFunction("api", "Target", "", BuildContext{}, cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fn == nil || len(fn.Params) != 1 || fn.Params[0].Type.Name != "depx/v2.T" {
+		t.Fatalf("external function: %+v", fn)
+	}
+	if calls != 1 {
+		t.Fatalf("shared standard import calls = %d, want 1", calls)
 	}
 }
