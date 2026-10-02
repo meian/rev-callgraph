@@ -84,6 +84,21 @@ func TestDiscoverModulesBuildContextAndSymbolSet(t *testing.T) {
 			t.Errorf("external test package = %q", source.Package)
 		}
 	}
+	packages := make(map[string]Package)
+	for _, pkg := range w.Packages {
+		packages[pkg.Path] = pkg
+		for _, source := range pkg.Sources {
+			if source.Package != pkg.Path || source.Module != pkg.Module {
+				t.Errorf("package %q contains foreign source %+v", pkg.Path, source)
+			}
+		}
+	}
+	if got := len(packages["example.com/common"].Sources); got != 3 {
+		t.Errorf("internal test package sources = %d, want 3", got)
+	}
+	if got := len(packages["example.com/common_test"].Sources); got != 1 {
+		t.Errorf("external test package sources = %d, want 1", got)
+	}
 }
 
 func TestDiscoverAmbiguousModuleSeries(t *testing.T) {

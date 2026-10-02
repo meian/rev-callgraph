@@ -41,9 +41,22 @@ func Discover(ctx context.Context, options Options) (*Workspace, error) {
 		return nil, fmt.Errorf("invalid symbol set %q", options.SymbolSet)
 	}
 
+	w, modDirs, err := discoverModules(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	if err := discoverSources(ctx, root, w, modDirs, options); err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+// discoverModules establishes module ownership before any source is assigned
+// to a package. A nested go.mod therefore always wins over its parent.
+func discoverModules(ctx context.Context, root string) (*Workspace, map[string]int, error) {
 	w := &Workspace{}
 	modDirs := make(map[string]int)
-	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -91,13 +104,18 @@ func Discover(ctx context.Context, options Options) (*Workspace, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(w.Modules) == 0 {
-		return nil, fmt.Errorf("no go.mod found under %s", root)
+		return nil, nil, fmt.Errorf("no go.mod found under %s", root)
 	}
 	assignModuleSeries(w)
+	return w, modDirs, nil
+}
 
+// discoverSources records eligible file locations and package identities.
+// It reads only package/import headers; NewLocator indexes file tokens later.
+func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map[string]int, options Options) error {
 	buildContext := build.Default
 	if options.Build.GOOS != "" {
 		buildContext.GOOS = options.Build.GOOS
@@ -111,7 +129,7 @@ func Discover(ctx context.Context, options Options) (*Workspace, error) {
 		buildContext.CgoEnabled = false
 	}
 	buildContext.BuildTags = append([]string(nil), options.Build.Tags...)
-	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -179,7 +197,7 @@ func Discover(ctx context.Context, options Options) (*Workspace, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	names := map[string]string{}
 	for _, source := range w.Sources {
@@ -202,7 +220,25 @@ func Discover(ctx context.Context, options Options) (*Workspace, error) {
 		}
 		w.Sources[i].ImportPaths = aliases
 	}
-	return w, nil
+	// Build package ownership only after each file has its import aliases.
+	// Package identity includes the module because separate local modules may
+	// expose the same import path.
+	type packageKey struct {
+		path   string
+		module int
+	}
+	packages := make(map[packageKey]int)
+	for _, source := range w.Sources {
+		key := packageKey{source.Package, source.Module}
+		index, ok := packages[key]
+		if !ok {
+			index = len(w.Packages)
+			packages[key] = index
+			w.Packages = append(w.Packages, Package{Path: source.Package, Name: source.PackageName, Module: source.Module})
+		}
+		w.Packages[index].Sources = append(w.Packages[index].Sources, source)
+	}
+	return nil
 }
 
 func pathWithin(dir, path string) bool {

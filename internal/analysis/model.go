@@ -74,9 +74,18 @@ type Source struct {
 	Module                     int
 	Test                       bool
 }
+
+// Package groups eligible files by import path and owning module. The external
+// test package has its own path; internal test files share the regular package.
+type Package struct {
+	Path, Name string
+	Module     int
+	Sources    []Source
+}
 type Workspace struct {
-	Modules []Module
-	Sources []Source
+	Modules  []Module
+	Packages []Package
+	Sources  []Source
 }
 
 // TypeRef uses canonical package paths for named Go types, e.g. example.com/p.Item.
