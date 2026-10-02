@@ -22,9 +22,24 @@ func TestExternalParseErrorIsCachedAsUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := &engine{ctx: context.Background(), workspace: workspace, locator: locator, models: map[string]SourceModel{}, functions: map[string]Function{}, types: map[string]Type{}, definitionCache: map[string]bool{}, externalCache: map[string]*Function{}}
-	caller := Function{ID: "example.com/p.Caller", Package: "example.com/p"}
-	call := Call{Package: "strings", Name: "Broken"}
+	e := &engine{
+		ctx:             context.Background(),
+		workspace:       workspace,
+		locator:         locator,
+		models:          map[string]SourceModel{},
+		functions:       map[string]Function{},
+		types:           map[string]Type{},
+		definitionCache: map[string]bool{},
+		externalCache:   map[string]*Function{},
+	}
+	caller := Function{
+		ID:      "example.com/p.Caller",
+		Package: "example.com/p",
+	}
+	call := Call{
+		Package: "strings",
+		Name:    "Broken",
+	}
 	id, first, callee, err := e.resolve(caller, call)
 	if err != nil || id != "strings.Broken" || callee != nil || first.Status != Unknown || first.Kind != "definition-unavailable" {
 		t.Fatalf("parse error fallback: %s %+v %+v %v", id, first, callee, err)

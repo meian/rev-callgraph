@@ -51,10 +51,15 @@ type metadata struct {
 }
 
 func edgeMetadata(edge *analysis.Edge) metadata {
-	if edge == nil || edge.Resolution.Status == analysis.Resolved && edge.Compatibility.Status == analysis.Compatible {
+	if edge == nil ||
+		edge.Resolution.Status == analysis.Resolved &&
+			edge.Compatibility.Status == analysis.Compatible {
 		return metadata{}
 	}
-	return metadata{Resolution: &edge.Resolution, Compatibility: &edge.Compatibility}
+	return metadata{
+		Resolution:    &edge.Resolution,
+		Compatibility: &edge.Compatibility,
+	}
 }
 
 type nested struct {
@@ -66,7 +71,12 @@ type nested struct {
 }
 
 func nestedNode(node *analysis.Node) nested {
-	result := nested{Name: node.Name, Cycled: node.Cycle, Main: node.Main, metadata: edgeMetadata(node.Edge)}
+	result := nested{
+		Name:     node.Name,
+		Cycled:   node.Cycle,
+		Main:     node.Main,
+		metadata: edgeMetadata(node.Edge),
+	}
 	for _, caller := range sortedCallers(node.Callers) {
 		result.Callers = append(result.Callers, nestedNode(caller))
 	}
@@ -86,12 +96,20 @@ type edges struct {
 }
 
 func edgeDocument(result *analysis.Result) edges {
-	document := edges{Root: result.Root.Name, Nodes: []string{}, Edges: []edgeItem{}}
+	document := edges{
+		Root:  result.Root.Name,
+		Nodes: []string{},
+		Edges: []edgeItem{},
+	}
 	names := map[string]struct{}{result.Root.Name: {}}
 	for _, edge := range sortedEdges(result.Edges) {
 		names[edge.Caller] = struct{}{}
 		names[edge.Callee] = struct{}{}
-		document.Edges = append(document.Edges, edgeItem{Caller: edge.Caller, Callee: edge.Callee, metadata: edgeMetadata(&edge)})
+		document.Edges = append(document.Edges, edgeItem{
+			Caller:   edge.Caller,
+			Callee:   edge.Callee,
+			metadata: edgeMetadata(&edge),
+		})
 	}
 	for name := range names {
 		document.Nodes = append(document.Nodes, name)
@@ -108,7 +126,9 @@ func writeTree(w io.Writer, node *analysis.Node, depth int) error {
 	if node.Cycle {
 		line += " (cycled)"
 	}
-	if edge := node.Edge; edge != nil && !(edge.Resolution.Status == analysis.Resolved && edge.Compatibility.Status == analysis.Compatible) {
+	if edge := node.Edge; edge != nil &&
+		!(edge.Resolution.Status == analysis.Resolved &&
+			edge.Compatibility.Status == analysis.Compatible) {
 		line += fmt.Sprintf(" [resolution=%s, compatibility=%s]", edge.Resolution.Status, edge.Compatibility.Status)
 		if len(edge.Compatibility.Issues) > 0 {
 			issues := make([]string, 0, len(edge.Compatibility.Issues))

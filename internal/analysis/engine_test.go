@@ -101,7 +101,10 @@ func TestDepthAndPolicy(t *testing.T) {
 	if err != nil || len(r.Root.Callers[0].Callers) != 1 {
 		t.Fatalf("policy: %v %+v", err, r)
 	}
-	r, err = AnalyzeWithPolicy(context.Background(), "example.com/p.Target", Options{Dir: dir, MaxDepth: 1}, TraversalPolicy{ContinueIncompatible: true})
+	r, err = AnalyzeWithPolicy(context.Background(), "example.com/p.Target", Options{
+		Dir:      dir,
+		MaxDepth: 1,
+	}, TraversalPolicy{ContinueIncompatible: true})
 	if err != nil || len(r.Root.Callers[0].Callers) != 0 {
 		t.Fatalf("depth: %v %+v", err, r)
 	}

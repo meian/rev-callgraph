@@ -62,7 +62,10 @@ func TestRegressionExternalStdlibUsesTargetContext(t *testing.T) {
 	result := runFixture(t, map[string]string{
 		"go.mod": "module example.com/p\ngo 1.24\n",
 		"p.go":   "package p\nimport \"syscall\"\nfunc Caller(){syscall.ForkExec(\"\", nil, nil)}\n",
-	}, "syscall.ForkExec", Options{Build: BuildContext{GOOS: "windows", GOARCH: "amd64"}})
+	}, "syscall.ForkExec", Options{Build: BuildContext{
+		GOOS:   "windows",
+		GOARCH: "amd64",
+	}})
 	edge := regressionEdge(t, result, "example.com/p.Caller", "syscall.ForkExec")
 	if edge.Resolution.Status != Unknown {
 		t.Fatalf("syscall.ForkExec is unavailable in windows/amd64: %+v", edge.Resolution)
@@ -130,7 +133,10 @@ func TestRegressionCgoHeaderExternalBoundary(t *testing.T) {
 		"go.mod":  "module example.com/p\ngo 1.24\n",
 		"local.h": "int from_header(int);\n",
 		"p.go":    "package p\n/*\n#include \"local.h\"\n*/\nimport \"C\"\nfunc Caller(){C.from_header(1)}\nfunc Above(){Caller()}\n",
-	}, "C.from_header", Options{Build: BuildContext{CgoSet: true, Cgo: true}})
+	}, "C.from_header", Options{Build: BuildContext{
+		CgoSet: true,
+		Cgo:    true,
+	}})
 	edge := regressionEdge(t, result, "example.com/p.Caller", "C.from_header")
 	if edge.Resolution.Status != External || edge.Resolution.Kind != "cgo-header" || edge.Compatibility.Status != Compatible {
 		t.Fatalf("declared header symbol: %+v", edge)

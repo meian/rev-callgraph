@@ -69,14 +69,33 @@ func AnalyzeWithPolicy(ctx context.Context, target string, options Options, poli
 	if err != nil {
 		return nil, err
 	}
-	e := &engine{ctx: ctx, workspace: w, locator: locator, models: map[string]SourceModel{}, functions: map[string]Function{}, types: map[string]Type{}, callerCache: map[string][]Edge{}, definitionCache: map[string]bool{}, externalCache: map[string]*Function{}, packageNames: newStandardPackageNameCache(sourceBuildConfig(options.Build)), build: options.Build}
+	e := &engine{
+		ctx:             ctx,
+		workspace:       w,
+		locator:         locator,
+		models:          map[string]SourceModel{},
+		functions:       map[string]Function{},
+		types:           map[string]Type{},
+		callerCache:     map[string][]Edge{},
+		definitionCache: map[string]bool{},
+		externalCache:   map[string]*Function{},
+		packageNames:    newStandardPackageNameCache(sourceBuildConfig(options.Build)),
+		build:           options.Build,
+	}
 	e.stats.DiscoveredSources = len(w.Sources)
 	// Missing symbols remain valid roots so callers of a removed API can be shown.
 	if err = e.definitions(t.Package, t.Name); err != nil {
 		return nil, err
 	}
-	root := &Node{Name: t.ID(), Main: e.functions[t.ID()].Main, Callers: []*Node{}}
-	result := &Result{Root: root, Edges: []Edge{}}
+	root := &Node{
+		Name:    t.ID(),
+		Main:    e.functions[t.ID()].Main,
+		Callers: []*Node{},
+	}
+	result := &Result{
+		Root:  root,
+		Edges: []Edge{},
+	}
 	seenEdges := map[string]bool{}
 	var visit func(*Node, int, map[string]bool) error
 	visit = func(node *Node, depth int, ancestors map[string]bool) error {
@@ -104,7 +123,13 @@ func AnalyzeWithPolicy(ctx context.Context, target string, options Options, poli
 				result.Edges = append(result.Edges, edge)
 				seenEdges[key] = true
 			}
-			child := &Node{Name: name, Edge: &edge, Callers: []*Node{}, Main: e.functions[name].Main, Cycle: ancestors[name]}
+			child := &Node{
+				Name:    name,
+				Edge:    &edge,
+				Callers: []*Node{},
+				Main:    e.functions[name].Main,
+				Cycle:   ancestors[name],
+			}
 			node.Callers = append(node.Callers, child)
 			if child.Cycle || !policy.Continue(edge.Compatibility) || edge.Resolution.Status == External {
 				continue
@@ -220,7 +245,10 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 	}
 	if f, ok := e.functions[id]; ok {
 		if !e.sameSeries(caller.Module, f.Module) {
-			return "", Resolution{Status: External, Kind: "different-module-series"}, nil, nil
+			return "", Resolution{
+				Status: External,
+				Kind:   "different-module-series",
+			}, nil, nil
 		}
 		return id, Resolution{Status: Resolved}, &f, nil
 	}
@@ -231,7 +259,10 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 			return "", Resolution{}, nil, err
 		} else if ok {
 			if !e.sameSeries(caller.Module, f.Module) {
-				return "", Resolution{Status: External, Kind: "different-module-series"}, nil, nil
+				return "", Resolution{
+					Status: External,
+					Kind:   "different-module-series",
+				}, nil, nil
 			}
 			return f.ID, Resolution{Status: Resolved}, &f, nil
 		}
@@ -248,14 +279,23 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 		}
 	}
 	if call.ExternalKind != "" {
-		return id, Resolution{Status: External, Kind: call.ExternalKind}, nil, nil
+		return id, Resolution{
+			Status: External,
+			Kind:   call.ExternalKind,
+		}, nil, nil
 	}
 	for _, s := range e.workspace.Sources {
 		if s.Package == pkg {
 			if !e.sameSeries(caller.Module, s.Module) {
-				return "", Resolution{Status: External, Kind: "different-module-series"}, nil, nil
+				return "", Resolution{
+					Status: External,
+					Kind:   "different-module-series",
+				}, nil, nil
 			}
-			return id, Resolution{Status: Unknown, Kind: "missing-symbol"}, nil, nil
+			return id, Resolution{
+				Status: Unknown,
+				Kind:   "missing-symbol",
+			}, nil, nil
 		}
 	}
 	// Read a declaration before marking a standard-library symbol external.
@@ -273,11 +313,17 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 			e.stats.CacheHits++
 		}
 		if external != nil {
-			return id, Resolution{Status: External, Kind: "standard-library"}, external, nil
+			return id, Resolution{
+				Status: External,
+				Kind:   "standard-library",
+			}, external, nil
 		}
 	}
 	// Syntax alone does not establish that a dependency symbol exists.
-	return id, Resolution{Status: Unknown, Kind: "definition-unavailable"}, nil, nil
+	return id, Resolution{
+		Status: Unknown,
+		Kind:   "definition-unavailable",
+	}, nil, nil
 }
 func (e *engine) method(receiver, name string, seen map[string]bool) (Function, bool, error) {
 	if seen[receiver] {
@@ -296,7 +342,16 @@ func (e *engine) method(receiver, name string, seen map[string]bool) (Function, 
 		return Function{}, false, nil
 	}
 	if signature, ok := typ.Methods[name]; ok {
-		return Function{ID: receiver + "#" + name, Package: receiver[:i], Name: name, Receiver: receiver, Module: typ.Module, Params: signature.Params, Results: signature.Results, Variadic: signature.Variadic}, true, nil
+		return Function{
+			ID:       receiver + "#" + name,
+			Package:  receiver[:i],
+			Name:     name,
+			Receiver: receiver,
+			Module:   typ.Module,
+			Params:   signature.Params,
+			Results:  signature.Results,
+			Variadic: signature.Variadic,
+		}, true, nil
 	}
 	if typ.Alias && typ.Underlying != "" {
 		id := receiverID(typ.Underlying) + "#" + name
@@ -382,7 +437,10 @@ func (e *engine) resolveType(ref TypeRef, seen map[string]bool) TypeRef {
 		return e.resolveType(field, seen)
 	}
 	if typ.Alias {
-		return e.resolveType(TypeRef{FieldBase: &TypeRef{Name: typ.Underlying}, FieldName: ref.FieldName}, seen)
+		return e.resolveType(TypeRef{
+			FieldBase: &TypeRef{Name: typ.Underlying},
+			FieldName: ref.FieldName,
+		}, seen)
 	}
 	return TypeRef{}
 }
@@ -423,7 +481,13 @@ func (e *engine) callersFor(targetID string) ([]Edge, error) {
 					continue
 				}
 				comp := e.compatibility(call, callee, res)
-				callers = append(callers, Edge{Caller: f.ID, Callee: id, Resolution: res, Compatibility: comp, Location: call.Location})
+				callers = append(callers, Edge{
+					Caller:        f.ID,
+					Callee:        id,
+					Resolution:    res,
+					Compatibility: comp,
+					Location:      call.Location,
+				})
 			}
 		}
 

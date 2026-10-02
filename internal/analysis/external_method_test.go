@@ -55,7 +55,10 @@ func TestExternalMethodsEndReverseTraversal(t *testing.T) {
 
 func TestExternalMethodUsesTargetContext(t *testing.T) {
 	for _, os := range []string{"windows", "linux"} {
-		f, err := AnalyzeExternalFunction("syscall", "FindProc", "*syscall.DLL", BuildContext{GOOS: os, GOARCH: "amd64"})
+		f, err := AnalyzeExternalFunction("syscall", "FindProc", "*syscall.DLL", BuildContext{
+			GOOS:   os,
+			GOARCH: "amd64",
+		})
 		if err != nil {
 			t.Fatal(err)
 		}

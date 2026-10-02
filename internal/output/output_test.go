@@ -10,9 +10,37 @@ import (
 )
 
 func TestJSONMetadataAndOrder(t *testing.T) {
-	resolved := analysis.Edge{Caller: "z", Callee: "target", Resolution: analysis.Resolution{Status: analysis.Resolved}, Compatibility: analysis.Compatibility{Status: analysis.Compatible}}
-	broken := analysis.Edge{Caller: "a", Callee: "target", Resolution: analysis.Resolution{Status: analysis.Resolved}, Compatibility: analysis.Compatibility{Status: analysis.Incompatible, Issues: []analysis.Issue{{Kind: "argument-count", Message: "want 2"}}}}
-	result := &analysis.Result{Root: &analysis.Node{Name: "target", Callers: []*analysis.Node{{Name: "z", Edge: &resolved}, {Name: "a", Edge: &broken}}}, Edges: []analysis.Edge{resolved, broken}}
+	resolved := analysis.Edge{
+		Caller:        "z",
+		Callee:        "target",
+		Resolution:    analysis.Resolution{Status: analysis.Resolved},
+		Compatibility: analysis.Compatibility{Status: analysis.Compatible},
+	}
+	broken := analysis.Edge{
+		Caller:     "a",
+		Callee:     "target",
+		Resolution: analysis.Resolution{Status: analysis.Resolved},
+		Compatibility: analysis.Compatibility{
+			Status: analysis.Incompatible,
+			Issues: []analysis.Issue{{
+				Kind:    "argument-count",
+				Message: "want 2",
+			}},
+		},
+	}
+	result := &analysis.Result{
+		Root: &analysis.Node{
+			Name: "target",
+			Callers: []*analysis.Node{{
+				Name: "z",
+				Edge: &resolved,
+			}, {
+				Name: "a",
+				Edge: &broken,
+			}},
+		},
+		Edges: []analysis.Edge{resolved, broken},
+	}
 	var out bytes.Buffer
 	if err := Write(&out, result, "json", "edges"); err != nil {
 		t.Fatal(err)
@@ -46,8 +74,24 @@ func TestJSONMetadataAndOrder(t *testing.T) {
 }
 
 func TestTreeAndDOTShowStatus(t *testing.T) {
-	edge := analysis.Edge{Caller: "caller", Callee: "target", Resolution: analysis.Resolution{Status: analysis.External}, Compatibility: analysis.Compatibility{Status: analysis.CompatibilityUnknown}}
-	result := &analysis.Result{Root: &analysis.Node{Name: "target", Callers: []*analysis.Node{{Name: "caller", Main: true, Cycle: true, Edge: &edge}}}, Edges: []analysis.Edge{edge}}
+	edge := analysis.Edge{
+		Caller:        "caller",
+		Callee:        "target",
+		Resolution:    analysis.Resolution{Status: analysis.External},
+		Compatibility: analysis.Compatibility{Status: analysis.CompatibilityUnknown},
+	}
+	result := &analysis.Result{
+		Root: &analysis.Node{
+			Name: "target",
+			Callers: []*analysis.Node{{
+				Name:  "caller",
+				Main:  true,
+				Cycle: true,
+				Edge:  &edge,
+			}},
+		},
+		Edges: []analysis.Edge{edge},
+	}
 	var out bytes.Buffer
 	if err := Write(&out, result, "tree", ""); err != nil {
 		t.Fatal(err)
