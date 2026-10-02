@@ -288,6 +288,16 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 			Kind:   call.ExternalKind,
 		}, nil, nil
 	}
+	// A local package must win over a same-path package in another module,
+	// even when neither module has an inferred version series.
+	for _, p := range e.workspace.Packages {
+		if p.Path == pkg && p.Module == caller.Module {
+			return id, Resolution{
+				Status: Unknown,
+				Kind:   "missing-symbol",
+			}, nil, nil
+		}
+	}
 	for _, p := range e.workspace.Packages {
 		if p.Path == pkg {
 			if !e.sameSeries(caller.Module, p.Module) {

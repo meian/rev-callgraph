@@ -221,20 +221,32 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		w.Sources[i].ImportPaths = aliases
 	}
 	// Build package ownership only after each file has its import aliases.
-	// Package identity includes the module because separate local modules may
-	// expose the same import path.
+	// The directory and test variant distinguish external test packages from
+	// regular packages whose directory happens to end in _test.
 	type packageKey struct {
-		path   string
-		module int
+		path, dir    string
+		module       int
+		externalTest bool
 	}
 	packages := make(map[packageKey]int)
 	for _, source := range w.Sources {
-		key := packageKey{source.Package, source.Module}
+		key := packageKey{
+			path:         source.Package,
+			dir:          filepath.Dir(source.Path),
+			module:       source.Module,
+			externalTest: source.Test && strings.HasSuffix(source.PackageName, "_test"),
+		}
 		index, ok := packages[key]
 		if !ok {
 			index = len(w.Packages)
 			packages[key] = index
-			w.Packages = append(w.Packages, Package{Path: source.Package, Name: source.PackageName, Module: source.Module})
+			w.Packages = append(w.Packages, Package{
+				Path:         source.Package,
+				Name:         source.PackageName,
+				Dir:          key.dir,
+				Module:       source.Module,
+				ExternalTest: key.externalTest,
+			})
 		}
 		w.Packages[index].Sources = append(w.Packages[index].Sources, source)
 	}

@@ -12,6 +12,23 @@ type retryLocator struct{ sources []Source }
 func (l retryLocator) Definitions(_, _ string) []Source { return l.sources }
 func (l retryLocator) Callers(_, _ string) []Source     { return nil }
 
+func TestMissingSymbolPrefersCallerModule(t *testing.T) {
+	result := runFixture(t, map[string]string{
+		"a/go.mod": "module example.com/p\ngo 1.24\n",
+		"a/a.go":   "package p\nfunc First() { Missing() }\n",
+		"b/go.mod": "module example.com/p\ngo 1.24\n",
+		"b/b.go":   "package p\nfunc Second() { Missing() }\n",
+	}, "example.com/p.Missing", Options{})
+	if len(result.Edges) != 2 {
+		t.Fatalf("edges = %+v, want callers from both owning modules", result.Edges)
+	}
+	for _, edge := range result.Edges {
+		if edge.Resolution.Status != Unknown || edge.Resolution.Kind != "missing-symbol" {
+			t.Errorf("resolution for %s = %+v, want unknown/missing-symbol", edge.Caller, edge.Resolution)
+		}
+	}
+}
+
 func TestDefinitionLoadFailureDoesNotCacheCompletion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "target.go")
 	source := Source{Path: path, Package: "example.com/p", PackageName: "p"}

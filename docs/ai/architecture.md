@@ -20,13 +20,17 @@ CLI -> Discover (module 発見 -> source 列挙と package 構築)
 
 ### 状態と所有者
 
-1 回の `AnalyzeWithPolicy` は、指定された build context と symbol set に対して新しい `Workspace`、`Locator`、`engine` を作る。異なる解析条件の間で cache は共有しない。`discoverModules` は `go.mod` を発見し module の系列と nested module の所有境界を確定する。`discoverSources` は対象条件に合う file を列挙し、package 宣言と import header を読み、`Workspace.Packages` を作る。package は import path と所有 module で識別する。通常 file と internal test file は同じ package、external test file は `_test` の別 package に属する。同名の `main` package でも import path は directory ごとに異なる。
+1 回の `AnalyzeWithPolicy` は、指定された build context と symbol set に対して新しい `Workspace`、`Locator`、`engine` を作る。異なる解析条件の間で cache は共有しない。`discoverModules` は `go.mod` を発見し module の系列と nested module の所有境界を確定する。`discoverSources` は対象条件に合う file を列挙し、package 宣言と import header を読み、`Workspace.Packages` を作る。package の file 所属は path・所有 module・directory・external test の区別で管理する。通常 file と internal test file は同じ package、external test file は別 package に属する。`bar` の external test と通常の `bar_test` directory はどちらも従来の symbol path `module/bar_test` を持つが、`Package.Dir` と `Package.ExternalTest` により `Sources` が混在しない。同名の `main` package でも import path は directory ごとに異なる。
+
+locator と関数・型の ID は引き続き従来の package path を使う。このため、上記の external test と通常 package が同名の symbol を持つ場合などの ID 衝突は既存の制約として残る。解析用 identity を locator・symbol・cache に一貫して伝える対応は #80 の後続範囲とする。
 
 `Workspace.Sources` は所在確認済みの file、`NewLocator` の成功後はその全 file の token index が構築済みとなる。`Locator.Definitions` は package path と symbol 名から、`Locator.Callers` は symbol 名から候補 file を返す。候補は確定した定義・caller ではない。package から探索を始め、必要な候補 file だけを `engine.load` が詳細解析する。`engine.models` に path がなければ詳細解析は未実施、あれば `SourceModel` が完成している。`functions` と `types` は完成した file model から作る。新しい source I/O 削減や package の遅延発見はここでは行わない。
 
 `definitionCache` は package path と名前、`callerCache` は完全な symbol ID を key とする。両者は探索と必要な file の読み込みが成功した後だけ記録する。`models` にも成功した解析結果だけを記録する。未ロードは不存在を意味しない。候補を読み終えた後に初めて「定義なし」と判断でき、`resolve` は workspace 内 package の symbol 不在を `unknown/missing-symbol`、外部宣言を確認できない場合を `unknown/definition-unavailable` とする。file の読み込み・解析が失敗した場合はエラーを返し、完了 cache を記録しないので同じ解析条件で再試行できる。module/source 発見や index 構築の失敗時は engine を作らず解析全体を失敗させる。
 
 caller 計算結果は同じ engine の固定された候補集合に対して再利用する。後続の別条件や追加発見された package に持ち越さない。逆方向 traversal の cycle は現在経路の ancestors、max depth は現在経路の深さで判定し、別経路で同じ symbol に到達しても分岐を残す。表示用の同等辺だけをまとめる。
+
+定義が見つからない場合の package 判定は、同じ path のうち caller の所有 module を優先し、`unknown/missing-symbol` を返す。caller の module に一致する package がない場合に限り、別 module との系列判定を行う。
 
 `Discover` は `go.mod` を収集し、nested module 境界を確定してから、symbol set と build context に合う Go source を列挙する。module path の major suffix を優先し、suffix がなければ workspace の require major から source module の系列を推定する。一意でない系列は空値のままとする。`replace` は旧 version・新 path・新 version を保持し、現在の require に適用できるものだけを解決と系列推定に利用する。解析時には major の完全一致を要求するが minor・patch は要求しない。`v0` と `v1` は分離する。
 

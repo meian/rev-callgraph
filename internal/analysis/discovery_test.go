@@ -101,6 +101,47 @@ func TestDiscoverModulesBuildContextAndSymbolSet(t *testing.T) {
 	}
 }
 
+func TestDiscoverSeparatesExternalTestPathCollision(t *testing.T) {
+	root := fixture(t, map[string]string{
+		"go.mod":               "module example.com/p\ngo 1.24\n",
+		"bar/regular.go":       "package bar\nfunc Regular() {}\n",
+		"bar/internal_test.go": "package bar\nfunc Internal() {}\n",
+		"bar/external_test.go": "package bar_test\nfunc SameName() {}\n",
+		"bar_test/regular.go":  "package bar_test\nfunc SameName() {}\n",
+	})
+	w, err := Discover(context.Background(), Options{
+		Dir:       root,
+		SymbolSet: Test,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(w.Packages) != 3 {
+		t.Fatalf("packages = %d, want 3 separate Go packages", len(w.Packages))
+	}
+	var colliding int
+	for _, pkg := range w.Packages {
+		if pkg.Path == "example.com/p/bar" {
+			if len(pkg.Sources) != 2 || pkg.ExternalTest || pkg.Dir != filepath.Join(root, "bar") {
+				t.Fatalf("regular and internal test files must share a package: %+v", pkg)
+			}
+			continue
+		}
+		if pkg.Path != "example.com/p/bar_test" || len(pkg.Sources) != 1 {
+			t.Fatalf("unexpected package: %+v", pkg)
+		}
+		source := pkg.Sources[0]
+		wantExternal := filepath.Base(source.Path) == "external_test.go"
+		if pkg.ExternalTest != wantExternal || pkg.Dir != filepath.Dir(source.Path) {
+			t.Errorf("package ownership metadata = %+v", pkg)
+		}
+		colliding++
+	}
+	if colliding != 2 {
+		t.Fatalf("colliding paths = %d, want 2 distinct packages", colliding)
+	}
+}
+
 func TestDiscoverAmbiguousModuleSeries(t *testing.T) {
 	root := t.TempDir()
 	writeDiscoveryFixture(t, root, "common/go.mod", "module example.com/common\n\ngo 1.23\n")

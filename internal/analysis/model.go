@@ -75,12 +75,14 @@ type Source struct {
 	Test                       bool
 }
 
-// Package groups eligible files by import path and owning module. The external
-// test package has its own path; internal test files share the regular package.
+// Package groups eligible files by module, directory and test variant. Path
+// retains the existing symbol path and need not be unique: bar's external test
+// package and a regular bar_test directory can both have path module/bar_test.
 type Package struct {
-	Path, Name string
-	Module     int
-	Sources    []Source
+	Path, Name, Dir string
+	Module          int
+	ExternalTest    bool
+	Sources         []Source
 }
 type Workspace struct {
 	Modules  []Module
