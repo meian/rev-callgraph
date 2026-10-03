@@ -304,7 +304,7 @@ func requireTargetsModule(consumer Module, requiredPath string, module Module) b
 	return filepath.Clean(path) == module.Dir
 }
 
-// 選択された require のバージョンに対する置換は、全バージョン向けの置換より優先される。
+// selectedReplacement では、選択された require のバージョンに対する置換を全バージョン向けの置換より優先する。
 // require がない場合は、全バージョン向けの置換だけを適用する。
 func selectedReplacement(consumer Module, requiredPath string) (Replacement, bool) {
 	version := consumer.Requires[requiredPath]
