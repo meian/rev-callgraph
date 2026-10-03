@@ -176,11 +176,6 @@ func (e *engine) load(s Source) error {
 	return nil
 }
 func (e *engine) definitions(pkg, name string) error {
-	// 所在が確認できない path と公開 Locator は従来の cache を使う。
-	if e.definitionCache[pkg+"\x00"+name] {
-		e.stats.CacheHits++
-		return nil
-	}
 	// 公開 Locator の契約は path 検索のまま保ち、内部索引が使える場合だけ
 	// package ごとに完了状態を記録する。
 	if locator, ok := e.locator.(*indexedLocator); ok {
@@ -192,6 +187,11 @@ func (e *engine) definitions(pkg, name string) error {
 			}
 			return nil
 		}
+	}
+	// 所在が確認できない path と公開 Locator は従来の cache を使う。
+	if e.definitionCache[pkg+"\x00"+name] {
+		e.stats.CacheHits++
+		return nil
 	}
 	return e.loadDefinitions(pkg, name, e.locator.Definitions(pkg, name))
 }
