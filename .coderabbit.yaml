@@ -5,3 +5,9 @@ reviews:
   poem: false
   auto_review:
     drafts: false
+
+knowledge_base:
+  code_guidelines:
+    filePatterns:
+      - files: "docs/ai/architecture.md"
+        applyTo: "**/*"
