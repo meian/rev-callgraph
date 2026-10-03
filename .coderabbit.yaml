@@ -10,4 +10,7 @@ knowledge_base:
   code_guidelines:
     filePatterns:
       - files: "docs/ai/architecture.md"
-        applyTo: "**/*"
+        applyTo:
+          - "**/*"
+          - ".*"
+          - ".*/**/*"
