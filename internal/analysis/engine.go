@@ -361,14 +361,15 @@ func (e *engine) method(receiver, name string, seen map[string]bool) (Function, 
 	}
 	if signature, ok := typ.Methods[name]; ok {
 		return Function{
-			ID:       receiver + "#" + name,
-			Package:  receiver[:i],
-			Name:     name,
-			Receiver: receiver,
-			Module:   typ.Module,
-			Params:   signature.Params,
-			Results:  signature.Results,
-			Variadic: signature.Variadic,
+			ID:        receiver + "#" + name,
+			Package:   receiver[:i],
+			PackageID: typ.PackageID,
+			Name:      name,
+			Receiver:  receiver,
+			Module:    typ.Module,
+			Params:    signature.Params,
+			Results:   signature.Results,
+			Variadic:  signature.Variadic,
 		}, true, nil
 	}
 	if typ.Alias && typ.Underlying != "" {
