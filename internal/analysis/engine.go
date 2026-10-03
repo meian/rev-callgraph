@@ -176,13 +176,35 @@ func (e *engine) load(s Source) error {
 	return nil
 }
 func (e *engine) definitions(pkg, name string) error {
-	key := pkg + "\x00" + name
+	// 所在が確認できない path と公開 Locator は従来の cache を使う。
+	if e.definitionCache[pkg+"\x00"+name] {
+		e.stats.CacheHits++
+		return nil
+	}
+	// 公開 Locator の契約は path 検索のまま保ち、内部索引が使える場合だけ
+	// package ごとに完了状態を記録する。
+	if locator, ok := e.locator.(*indexedLocator); ok {
+		if packageIDs := locator.definitionPackageIDs(pkg); len(packageIDs) != 0 {
+			for _, packageID := range packageIDs {
+				if err := e.loadDefinitions(packageID, name, locator.definitionsInPackage(packageID, name)); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+	return e.loadDefinitions(pkg, name, e.locator.Definitions(pkg, name))
+}
+
+// loadDefinitions は候補をすべて読み込めた単位だけ、定義検索の完了を記録する。
+func (e *engine) loadDefinitions(packageID, name string, sources []Source) error {
+	key := packageID + "\x00" + name
 	if e.definitionCache[key] {
 		e.stats.CacheHits++
 		return nil
 	}
 	e.stats.LocatorLookups++
-	for _, s := range e.locator.Definitions(pkg, name) {
+	for _, s := range sources {
 		if err := e.load(s); err != nil {
 			return err
 		}
