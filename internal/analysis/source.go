@@ -346,14 +346,15 @@ func (a *sourceAnalyzer) signature(ft *ast.FuncType) Signature {
 func (a *sourceAnalyzer) function(d *ast.FuncDecl) Function {
 	sig := a.signature(d.Type)
 	fn := Function{
-		Package:  a.source.Package,
-		Name:     d.Name.Name,
-		Module:   a.source.Module,
-		Params:   sig.Params,
-		Results:  sig.Results,
-		Variadic: sig.Variadic,
-		Location: a.location(d.Pos()),
-		Main:     a.source.PackageName == "main",
+		Package:   a.source.Package,
+		PackageID: a.source.PackageID,
+		Name:      d.Name.Name,
+		Module:    a.source.Module,
+		Params:    sig.Params,
+		Results:   sig.Results,
+		Variadic:  sig.Variadic,
+		Location:  a.location(d.Pos()),
+		Main:      a.source.PackageName == "main",
 	}
 	fn.ID = a.source.Package + "." + fn.Name
 	if d.Recv != nil && len(d.Recv.List) != 0 {
@@ -366,11 +367,12 @@ func (a *sourceAnalyzer) function(d *ast.FuncDecl) Function {
 
 func (a *sourceAnalyzer) analyzeType(ts *ast.TypeSpec) Type {
 	t := Type{
-		Module:  a.source.Module,
-		ID:      a.source.Package + "." + ts.Name.Name,
-		Fields:  make(map[string]TypeRef),
-		Methods: make(map[string]Signature),
-		Alias:   ts.Assign.IsValid(),
+		Module:    a.source.Module,
+		ID:        a.source.Package + "." + ts.Name.Name,
+		PackageID: a.source.PackageID,
+		Fields:    make(map[string]TypeRef),
+		Methods:   make(map[string]Signature),
+		Alias:     ts.Assign.IsValid(),
 	}
 	a.types[ts.Name.Name] = TypeRef{Name: t.ID}
 	if alias := a.typeOf(ts.Type); alias.Name != "" {

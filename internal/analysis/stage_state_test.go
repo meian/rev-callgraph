@@ -142,3 +142,34 @@ func TestMissingSymbolChecksAllPackageSeries(t *testing.T) {
 		})
 	}
 }
+
+func TestInterfaceMethodKeepsPackageIdentity(t *testing.T) {
+	dir := fixture(t, map[string]string{
+		"go.mod":   "module example.com/p\ngo 1.24\n",
+		"types.go": "package p\ntype Contract interface { Run() }\n",
+	})
+	workspace, err := Discover(context.Background(), Options{Dir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	locator, err := NewLocator(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &engine{
+		ctx:             context.Background(),
+		workspace:       workspace,
+		locator:         locator,
+		models:          map[string]SourceModel{},
+		functions:       map[string]Function{},
+		types:           map[string]Type{},
+		definitionCache: map[string]bool{},
+	}
+	method, ok, err := e.method("example.com/p.Contract", "Run", map[string]bool{})
+	if err != nil || !ok {
+		t.Fatalf("method = %+v, %t, %v", method, ok, err)
+	}
+	if method.PackageID != workspace.Sources[0].PackageID {
+		t.Fatalf("package identity = %q, want %q", method.PackageID, workspace.Sources[0].PackageID)
+	}
+}
