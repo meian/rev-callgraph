@@ -20,7 +20,7 @@ CLI -> Discover (module 発見 -> source 列挙と package 構築)
 
 ### 状態と所有者
 
-1 回の `AnalyzeWithPolicy` は、指定された build context と symbol set に対して新しい `Workspace`、`Locator`、`engine` を作る。異なる解析条件の間で cache は共有しない。`discoverModules` は `go.mod` を発見し module の系列と nested module の所有境界を確定する。`discoverSources` は対象条件に合う file を列挙し、package 宣言と import header を読み、`Workspace.Packages` を作る。package の file 所属は path・所有 module・directory・external test の区別で管理する。通常 file と internal test file は同じ package、external test file は別 package に属する。`bar` の external test と通常の `bar_test` directory はどちらも従来の symbol path `module/bar_test` を持つが、`Package.Dir` と `Package.ExternalTest` により `Sources` が混在しない。同名の `main` package でも import path は directory ごとに異なる。
+1 回の `AnalyzeWithPolicy` は、指定された build context と symbol set に対して新しい `Workspace`、`Locator`、`engine` を作る。異なる解析条件の間で cache は共有しない。`discoverModules` は `go.mod` を発見し module の系列と nested module の所有境界を確定する。`discoverSources` は対象条件に合う file を列挙し、package 宣言と import header を読み、`Workspace.Packages` を作る。package の file 所属は path・所有 module・directory・external test の区別で管理する。通常 file と internal test file は同じ package、external test file は別 package に属する。`Package.ID` と各 `Source.PackageID` は、この区別を含む一回の解析内だけの identity である。`bar` の external test と通常の `bar_test` directory はどちらも従来の symbol path `module/bar_test` を持つが、異なる `Package.ID` に属するため `Sources` が混在しない。同名の `main` package でも import path は directory ごとに異なる。
 
 locator と関数・型の ID は引き続き従来の package path を使う。このため、上記の external test と通常 package が同名の symbol を持つ場合などの ID 衝突は既存の制約として残る。解析用 identity を locator・symbol・cache に一貫して伝える対応は #80 の後続範囲とする。
 

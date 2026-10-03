@@ -176,7 +176,12 @@ func TestDiscoverSeparatesExternalTestPathCollision(t *testing.T) {
 		t.Fatalf("packages = %d, want 3 separate Go packages", len(w.Packages))
 	}
 	var colliding int
+	ids := map[string]bool{}
 	for _, pkg := range w.Packages {
+		if pkg.ID == "" || ids[pkg.ID] {
+			t.Fatalf("package identity = %q, want a unique non-empty value", pkg.ID)
+		}
+		ids[pkg.ID] = true
 		if pkg.Path == "example.com/p/bar" {
 			if len(pkg.Sources) != 2 || pkg.ExternalTest || pkg.Dir != filepath.Join(root, "bar") {
 				t.Fatalf("regular and internal test files must share a package: %+v", pkg)
@@ -188,7 +193,7 @@ func TestDiscoverSeparatesExternalTestPathCollision(t *testing.T) {
 		}
 		source := pkg.Sources[0]
 		wantExternal := filepath.Base(source.Path) == "external_test.go"
-		if pkg.ExternalTest != wantExternal || pkg.Dir != filepath.Dir(source.Path) {
+		if pkg.ExternalTest != wantExternal || pkg.Dir != filepath.Dir(source.Path) || source.PackageID != pkg.ID {
 			t.Errorf("package ownership metadata = %+v", pkg)
 		}
 		colliding++
