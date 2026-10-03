@@ -56,13 +56,14 @@ CLI -> Discover (module 発見 -> source 列挙と package 構築)
 
 locator と関数・型の公開 ID は引き続き従来の package path を使う。
 `Function.PackageID` と `Type.PackageID` は source の解析用 identity を保持する。
-現時点の `engine.functions` と `engine.types` は公開 ID を key とし、`definitionCache` と `callerCache` も `PackageID` ごとには分離しない。
-`PackageID` は後続の内部索引と cache を分離するために保持する。
+現時点の `engine.functions` と `engine.types` は公開 ID を key とし、`callerCache` も `PackageID` ごとには分離しない。
+`definitionCache` は内部 locator の package identity ごとに完了を記録し、公開 Locator の実装では従来の path 単位で記録する。
+`PackageID` は後続の symbol 索引と caller cache を分離するためにも保持する。
 このため、上記の external test と通常 package が同名の symbol を持つ場合などの公開 ID 衝突は既存の制約として残る。
 
 `Workspace.Sources` は所在確認済みの file、`NewLocator` の成功後はその全 file の token index が構築済みとなる。`Locator.Definitions` は package path と symbol 名から、`Locator.Callers` は symbol 名から候補 file を返す。候補は確定した定義・caller ではない。package から探索を始め、必要な候補 file だけを `engine.load` が詳細解析する。`engine.models` に path がなければ詳細解析は未実施、あれば `SourceModel` が完成している。`functions` と `types` は完成した file model から作る。新しい source I/O 削減や package の遅延発見はここでは行わない。
 
-`definitionCache` は package path と名前、`callerCache` は完全な symbol ID を key とする。両者は探索と必要な file の読み込みが成功した後だけ記録する。`models` にも成功した解析結果だけを記録する。未ロードは不存在を意味しない。候補を読み終えた後に初めて「定義なし」と判断でき、`resolve` は workspace 内 package の symbol 不在を `unknown/missing-symbol`、外部宣言を確認できない場合を `unknown/definition-unavailable` とする。file の読み込み・解析が失敗した場合はエラーを返し、完了 cache を記録しないので同じ解析条件で再試行できる。module/source 発見や index 構築の失敗時は engine を作らず解析全体を失敗させる。
+`definitionCache` は内部 locator の package identity と名前、`callerCache` は完全な公開 symbol ID を key とする。両者は探索と必要な file の読み込みが成功した後だけ記録する。`models` にも成功した解析結果だけを記録する。未ロードは不存在を意味しない。候補を読み終えた後に初めて「定義なし」と判断でき、`resolve` は workspace 内 package の symbol 不在を `unknown/missing-symbol`、外部宣言を確認できない場合を `unknown/definition-unavailable` とする。file の読み込み・解析が失敗した場合はエラーを返し、失敗した package の完了 cache を記録しないので同じ解析条件で再試行できる。別 package の成功済み完了状態は再訪時に再利用する。module/source 発見や index 構築の失敗時は engine を作らず解析全体を失敗させる。
 
 caller 計算結果は同じ engine の固定された候補集合に対して再利用する。後続の別条件や追加発見された package に持ち越さない。逆方向 traversal の cycle は現在経路の ancestors、max depth は現在経路の深さで判定し、別経路で同じ symbol に到達しても分岐を残す。表示用の同等辺だけをまとめる。
 

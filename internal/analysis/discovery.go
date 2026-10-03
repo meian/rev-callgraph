@@ -469,6 +469,16 @@ func (l *indexedLocator) Definitions(packagePath, name string) []Source {
 	return sources
 }
 
+// definitionPackageIDs は公開 path に属する解析用 package identity を返す。
+func (l *indexedLocator) definitionPackageIDs(packagePath string) []string {
+	return l.packageIDs[packagePath]
+}
+
+// definitionsInPackage は一つの package 内の定義候補だけを返す。
+func (l *indexedLocator) definitionsInPackage(packageID, name string) []Source {
+	return l.definitions[packageID][name]
+}
+
 func (l *indexedLocator) Callers(_ string, name string) []Source {
 	return append([]Source(nil), l.callers[name]...)
 }

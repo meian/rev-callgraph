@@ -107,21 +107,26 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Need[必要な定義を要求] --> Done{探索済みか}
-    Done -->|はい| Back[元の照合・判定へ戻る]
-    Done -->|いいえ| Locate[定義の候補ファイルを取得]
+    Need[必要な定義を要求] --> Package{次の package はあるか}
+    Package -->|ない| Back[元の照合・判定へ戻る]
+    Package -->|ある| Done{この package の探索は完了済みか}
+    Done -->|はい| Package
+    Done -->|いいえ| Locate[この package の候補ファイルを取得]
     Locate --> Next{次の候補はあるか}
-    Next -->|ない| Save[探索完了を保存]
-    Save --> Back
+    Next -->|ない| Save[この package の探索完了を保存]
+    Save --> Package
     Next -->|ある| Cached{詳細解析済みか}
     Cached -->|はい| Next
     Cached -->|いいえ| Parse[詳細解析して関数・型を登録]
     Parse -->|成功| Next
-    Parse -->|失敗| Error[完了を保存せずエラーを返す]
+    Parse -->|失敗| Error[この package の完了は保存せずエラーを返す]
 ```
 
 未解析と、探索した結果の定義なしは別です。
-定義の候補が空でも探索は完了しますが、それは定義の存在を意味しません。
+内部索引では同じ公開 import path に複数の package があっても、定義検索の完了を package ごとに管理します。
+定義の候補が空でも、その package の探索は完了しますが、それは定義の存在を意味しません。
+途中の package で失敗した場合、先に成功した package の完了は保持し、次回は失敗した package から再試行します。
+公開 Locator や索引にない path では、従来どおり path 単位で完了を管理します。
 キャッシュは一回の解析に属し、異なる解析条件へ持ち越しません。
 一部の型照合では追加探索のエラーを伝播せず、得られた情報で判定を続けます。
 外部宣言には別のキャッシュがあり、取得失敗も保存して同じ実行中の再試行を抑えます。

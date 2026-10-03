@@ -80,6 +80,58 @@ func TestDefinitionLoadFailureDoesNotCacheCompletion(t *testing.T) {
 	}
 }
 
+func TestDefinitionCacheSeparatesPackagesWithSamePath(t *testing.T) {
+	root := fixture(t, map[string]string{
+		"a/go.mod": "module example.com/p\ngo 1.24\n",
+		"a/p.go":   "package p\nfunc Target() {}\n",
+		"b/go.mod": "module example.com/p\ngo 1.24\n",
+		"b/p.go":   "package p\nfunc Target() {}\n",
+	})
+	w, err := Discover(context.Background(), Options{Dir: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	locator, err := NewLocator(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &engine{
+		ctx:             context.Background(),
+		locator:         locator,
+		models:          map[string]SourceModel{},
+		functions:       map[string]Function{},
+		types:           map[string]Type{},
+		definitionCache: map[string]bool{},
+	}
+	missing := filepath.Join(root, "b", "p.go")
+	if err := os.Remove(missing); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.definitions("example.com/p", "Target"); err == nil {
+		t.Fatal("second package load should fail")
+	}
+	first := w.Sources[0].PackageID + "\x00Target"
+	second := w.Sources[1].PackageID + "\x00Target"
+	if !e.definitionCache[first] || e.definitionCache[second] || e.stats.AnalyzedSources != 1 {
+		t.Fatalf("partial completion = %+v, stats = %+v", e.definitionCache, e.stats)
+	}
+	if err := os.WriteFile(missing, []byte("package p\nfunc Target() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.definitions("example.com/p", "Target"); err != nil {
+		t.Fatal(err)
+	}
+	if !e.definitionCache[second] || e.stats.AnalyzedSources != 2 || e.stats.LocatorLookups != 3 {
+		t.Fatalf("retry completion = %+v, stats = %+v", e.definitionCache, e.stats)
+	}
+	if err := e.definitions("example.com/p", "Missing"); err != nil {
+		t.Fatal(err)
+	}
+	if !e.definitionCache[w.Sources[0].PackageID+"\x00Missing"] || !e.definitionCache[w.Sources[1].PackageID+"\x00Missing"] || e.stats.AnalyzedSources != 2 {
+		t.Fatalf("missing symbol completion = %+v, stats = %+v", e.definitionCache, e.stats)
+	}
+}
+
 func TestMissingSymbolChecksAllPackageSeries(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
