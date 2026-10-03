@@ -67,22 +67,23 @@ type Replacement struct {
 	NewVersion string
 }
 type Source struct {
-	ImportPaths                map[string]string
-	PackageNames               map[string]string
-	Path, Package, PackageName string
-	Build                      BuildContext
-	Module                     int
-	Test                       bool
+	ImportPaths                           map[string]string
+	PackageNames                          map[string]string
+	Path, Package, PackageID, PackageName string
+	Build                                 BuildContext
+	Module                                int
+	Test                                  bool
 }
 
 // Package は対象ファイルをモジュール、ディレクトリ、テスト種別ごとにまとめる。
+// ID は一回の解析中で package を一意に識別し、Path が同じ package を区別する。
 // Path は既存のシンボルパスを保持するため、一意とは限らない。
 // bar の外部テストパッケージと通常の bar_test ディレクトリは、どちらも module/bar_test になり得る。
 type Package struct {
-	Path, Name, Dir string
-	Module          int
-	ExternalTest    bool
-	Sources         []Source
+	ID, Path, Name, Dir string
+	Module              int
+	ExternalTest        bool
+	Sources             []Source
 }
 type Workspace struct {
 	Modules  []Module

@@ -228,7 +228,8 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		externalTest bool
 	}
 	packages := make(map[packageKey]int)
-	for _, source := range w.Sources {
+	for i := range w.Sources {
+		source := &w.Sources[i]
 		key := packageKey{
 			path:         source.Package,
 			dir:          filepath.Dir(source.Path),
@@ -240,6 +241,7 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 			index = len(w.Packages)
 			packages[key] = index
 			w.Packages = append(w.Packages, Package{
+				ID:           packageIdentity(key.path, key.dir, key.module, key.externalTest),
 				Path:         source.Package,
 				Name:         source.PackageName,
 				Dir:          key.dir,
@@ -247,9 +249,16 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 				ExternalTest: key.externalTest,
 			})
 		}
-		w.Packages[index].Sources = append(w.Packages[index].Sources, source)
+		source.PackageID = w.Packages[index].ID
+		w.Packages[index].Sources = append(w.Packages[index].Sources, *source)
 	}
 	return nil
+}
+
+// packageIdentity は同一解析内で package を識別する内部キーを返す。
+// import path は公開シンボルの識別子として残し、同じ path を持つ別ディレクトリや外部テストをここで区別する。
+func packageIdentity(path, dir string, module int, externalTest bool) string {
+	return path + "\x00" + dir + "\x00" + strconv.Itoa(module) + "\x00" + strconv.FormatBool(externalTest)
 }
 
 func pathWithin(dir, path string) bool {
