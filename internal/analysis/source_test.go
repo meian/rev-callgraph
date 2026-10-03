@@ -15,6 +15,7 @@ func parseSourceForTest(t *testing.T, body string) SourceModel {
 	model, err := AnalyzeSource(Source{
 		Path:        path,
 		Package:     "example.com/app",
+		PackageID:   "test-package",
 		PackageName: "app",
 	})
 	if err != nil {
@@ -41,6 +42,11 @@ func (i *Item) Do(v string) string {
 	if len(model.Types) != 3 {
 		t.Fatalf("types: %+v", model.Types)
 	}
+	for _, typ := range model.Types {
+		if typ.PackageID != "test-package" {
+			t.Errorf("type package identity = %q", typ.PackageID)
+		}
+	}
 	if model.Types[0].Fields["Name"].Name != "string" {
 		t.Fatalf("field: %+v", model.Types[0])
 	}
@@ -56,7 +62,7 @@ func (i *Item) Do(v string) string {
 			method = &model.Functions[i]
 		}
 	}
-	if method == nil || method.ID != "example.com/app.Item#Do" || method.Receiver != "*example.com/app.Item" {
+	if method == nil || method.ID != "example.com/app.Item#Do" || method.PackageID != "test-package" || method.Receiver != "*example.com/app.Item" {
 		t.Fatalf("method: %+v", method)
 	}
 	if len(method.Calls) != 4 {

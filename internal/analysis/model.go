@@ -104,21 +104,21 @@ type Parameter struct {
 	Type TypeRef
 }
 type Function struct {
-	Main                        bool
-	ID, Package, Name, Receiver string
-	Params, Results             []Parameter
-	Variadic                    bool
-	Location                    Location
-	Module                      int
-	Calls                       []Call
+	Main                                   bool
+	ID, Package, PackageID, Name, Receiver string
+	Params, Results                        []Parameter
+	Variadic                               bool
+	Location                               Location
+	Module                                 int
+	Calls                                  []Call
 }
 type Type struct {
-	Embedded       []TypeRef
-	Module         int
-	ID, Underlying string
-	Fields         map[string]TypeRef
-	Methods        map[string]Signature
-	Alias          bool
+	Embedded                  []TypeRef
+	Module                    int
+	ID, PackageID, Underlying string
+	Fields                    map[string]TypeRef
+	Methods                   map[string]Signature
+	Alias                     bool
 }
 type Signature struct {
 	Params, Results []Parameter
