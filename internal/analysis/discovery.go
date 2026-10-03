@@ -17,7 +17,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// Discover finds Go modules and files eligible for the requested build and symbol set.
+// Discover は指定されたビルド設定とシンボル集合の対象となる Go モジュールとファイルを探す。
 func Discover(ctx context.Context, options Options) (*Workspace, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -51,8 +51,8 @@ func Discover(ctx context.Context, options Options) (*Workspace, error) {
 	return w, nil
 }
 
-// discoverModules establishes module ownership before any source is assigned
-// to a package. A nested go.mod therefore always wins over its parent.
+// discoverModules はソースをパッケージに割り当てる前に、所属モジュールを決める。
+// そのため、入れ子の go.mod は常に親の go.mod より優先される。
 func discoverModules(ctx context.Context, root string) (*Workspace, map[string]int, error) {
 	w := &Workspace{}
 	modDirs := make(map[string]int)
@@ -113,8 +113,8 @@ func discoverModules(ctx context.Context, root string) (*Workspace, map[string]i
 	return w, modDirs, nil
 }
 
-// discoverSources records eligible file locations and package identities.
-// It reads only package/import headers; NewLocator indexes file tokens later.
+// discoverSources は対象ファイルの場所とパッケージの識別情報を記録する。
+// package/import ヘッダーだけを読み、ファイルのトークンは後で NewLocator が索引化する。
 func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map[string]int, options Options) error {
 	buildContext := build.Default
 	if options.Build.GOOS != "" {
@@ -220,9 +220,9 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		}
 		w.Sources[i].ImportPaths = aliases
 	}
-	// Build package ownership only after each file has its import aliases.
-	// The directory and test variant distinguish external test packages from
-	// regular packages whose directory happens to end in _test.
+	// 各ファイルの import エイリアスを取得してから、所属パッケージを決める。
+	// ディレクトリとテスト種別により、外部テストパッケージと、名前がたまたま
+	// _test で終わるディレクトリ内の通常のパッケージを区別する。
 	type packageKey struct {
 		path, dir    string
 		module       int
@@ -305,8 +305,8 @@ func requireTargetsModule(consumer Module, requiredPath string, module Module) b
 	return filepath.Clean(path) == module.Dir
 }
 
-// A replacement for the selected require version takes precedence over a
-// replacement covering every version. Without a require, only the latter applies.
+// 選択された require のバージョンに対する置換は、全バージョン向けの置換より優先される。
+// require がない場合は、全バージョン向けの置換だけを適用する。
 func selectedReplacement(consumer Module, requiredPath string) (Replacement, bool) {
 	version := consumer.Requires[requiredPath]
 	var allVersions Replacement
@@ -351,7 +351,7 @@ type indexedLocator struct {
 	callers     map[string][]Source
 }
 
-// NewLocator builds a token index without parsing whole source files into ASTs.
+// NewLocator はソースファイル全体を AST に解析せずに、トークンの索引を構築する。
 func NewLocator(w *Workspace) (Locator, error) {
 	if w == nil {
 		return nil, fmt.Errorf("nil workspace")

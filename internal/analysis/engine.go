@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Target is the public CLI symbol grammar, independent of source syntax.
+// Target はソース構文に依存しない、公開 CLI のシンボル指定形式を表す。
 type Target struct{ Package, Receiver, Name string }
 
 func ParseTarget(value string) (Target, error) {
@@ -45,14 +45,14 @@ type engine struct {
 	ctx       context.Context
 	workspace *Workspace
 	locator   Locator
-	// models is the file-level detailed-analysis state. An absent path has only
-	// been discovered/indexed; a present path has a complete SourceModel.
+	// models はファイル単位の詳細解析状態を保持する。パスがなければ発見・索引化のみ、
+	// パスがあれば完全な SourceModel を保持している。
 	models    map[string]SourceModel
 	functions map[string]Function
 	types     map[string]Type
 	stats     Statistics
-	// These caches belong to one engine (one build context and symbol set).
-	// A key is committed only after all required file loads succeed.
+	// これらの cache は一つの engine（ビルド設定とシンボル集合）に属する。
+	// 必要なファイルの読み込みがすべて成功してからキーを登録する。
 	callerCache     map[string][]Edge
 	definitionCache map[string]bool
 	externalCache   map[string]*Function
@@ -87,7 +87,7 @@ func AnalyzeWithPolicy(ctx context.Context, target string, options Options, poli
 		build:           options.Build,
 	}
 	e.stats.DiscoveredSources = len(w.Sources)
-	// Missing symbols remain valid roots so callers of a removed API can be shown.
+	// 存在しないシンボルも有効な起点とし、削除された API の呼び出し元を表示できるようにする。
 	if err = e.definitions(t.Package, t.Name); err != nil {
 		return nil, err
 	}
@@ -113,8 +113,8 @@ func AnalyzeWithPolicy(ctx context.Context, target string, options Options, poli
 		if err != nil {
 			return err
 		}
-		// Merge only equivalent outcomes. A failing call site must not hide a
-		// separate compatible route through the same caller.
+		// 同等の結果だけを統合する。不適合の呼び出し箇所によって、同じ呼び出し元を
+		// 通る別の適合経路が隠れないようにする。
 		unique := map[string]bool{}
 		for _, edge := range callers {
 			key := edgeOutcomeKey(edge)
@@ -256,8 +256,8 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 		}
 		return id, Resolution{Status: Resolved}, &f, nil
 	}
-	// Resolve methods promoted through embedded fields, without treating a
-	// similarly named method on another concrete receiver as the same symbol.
+	// 埋め込みフィールドから昇格したメソッドを解決する。別の具象 receiver にある
+	// 同名メソッドは同じシンボルとして扱わない。
 	if call.Receiver != "" {
 		if f, ok, err := e.method(receiverID(call.Receiver), name, map[string]bool{}); err != nil {
 			return "", Resolution{}, nil, err
@@ -288,8 +288,8 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 			Kind:   call.ExternalKind,
 		}, nil, nil
 	}
-	// A local package must win over a same-path package in another module,
-	// even when neither module has an inferred version series.
+	// どちらのモジュールでもバージョン系列を推定できない場合でも、別モジュールにある
+	// 同じパスのパッケージよりローカルパッケージを優先する。
 	for _, p := range e.workspace.Packages {
 		if p.Path == pkg && p.Module == caller.Module {
 			return id, Resolution{
@@ -317,7 +317,7 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 			Kind:   "different-module-series",
 		}, nil, nil
 	}
-	// Read a declaration before marking a standard-library symbol external.
+	// 標準ライブラリのシンボルを外部扱いにする前に、宣言を読み込む。
 	if !strings.Contains(strings.Split(pkg, "/")[0], ".") && pkg != "C" {
 		external, ok := e.externalCache[id]
 		if !ok {
@@ -338,7 +338,7 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 			}, external, nil
 		}
 	}
-	// Syntax alone does not establish that a dependency symbol exists.
+	// 構文だけでは依存先のシンボルが存在するとは判定できない。
 	return id, Resolution{
 		Status: Unknown,
 		Kind:   "definition-unavailable",
@@ -417,7 +417,7 @@ func (e *engine) sameSeries(from, to int) bool {
 			return major != "" && b.Series != "" && major == b.Series
 		}
 	}
-	// Explicit replacement without a require also identifies a local source.
+	// require がなくても、明示的な置換からローカルのソースを特定する。
 	for required := range a.Replaces {
 		if requireTargetsModule(a, required, b) {
 			return b.Series != ""
@@ -464,8 +464,8 @@ func (e *engine) resolveType(ref TypeRef, seen map[string]bool) TypeRef {
 	return TypeRef{}
 }
 
-// callersFor resolves source candidates once per symbol and keeps traversal
-// independent of discovery, conversion, and compatibility checking.
+// callersFor はシンボルごとにソース候補を一度だけ解決し、探索を発見・変換・
+// 互換性判定から独立させる。
 func (e *engine) callersFor(targetID string) ([]Edge, error) {
 	symbol, err := ParseTarget(targetID)
 	if err != nil {
@@ -479,9 +479,8 @@ func (e *engine) callersFor(targetID string) ([]Edge, error) {
 		}
 		for _, f := range funcs {
 			for _, call := range f.Calls {
-				// A source model already records the referenced symbol name,
-				// including resolved function-value aliases. Do not load other
-				// callees merely because they share this source file.
+				// ソースモデルには、解決済みの関数値エイリアスを含む参照先シンボル名が
+				// 記録されている。同じソースファイルにあるだけの別の呼び出し先は読み込まない。
 				if call.Name != symbol.Name {
 					continue
 				}
@@ -520,9 +519,8 @@ func (e *engine) callersFor(targetID string) ([]Edge, error) {
 	return callers, nil
 }
 
-// callerCandidates starts from a symbol name, loads the indexed candidate
-// files, then snapshots the available functions for call resolution. The
-// locator deliberately admits false positives across packages.
+// callerCandidates はシンボル名から索引にある候補ファイルを読み込み、呼び出し解決に
+// 使える関数のスナップショットを作る。locator は意図的にパッケージ間の偽陽性を許す。
 func (e *engine) callerCandidates(symbol Target) ([]Function, error) {
 	e.stats.LocatorLookups++
 	for _, source := range e.locator.Callers(symbol.Package, symbol.Name) {
@@ -530,7 +528,7 @@ func (e *engine) callerCandidates(symbol Target) ([]Function, error) {
 			return nil, err
 		}
 	}
-	// Resolving a call may load other definitions, so iterate a stable snapshot.
+	// 呼び出しの解決中に別の定義が読み込まれる場合があるため、固定したスナップショットを走査する。
 	funcs := make([]Function, 0, len(e.functions))
 	for _, f := range e.functions {
 		funcs = append(funcs, f)
@@ -538,8 +536,8 @@ func (e *engine) callerCandidates(symbol Target) ([]Function, error) {
 	return funcs, nil
 }
 
-// edgeOutcomeKey preserves independent compatibility outcomes while retaining
-// one graph branch for repeated equivalent calls, as in the original output.
+// edgeOutcomeKey は異なる互換性判定の結果を分けて保持し、同等の呼び出しが繰り返される
+// 場合は従来の出力と同様にグラフの枝を一つにまとめる。
 func edgeOutcomeKey(edge Edge) string {
 	data, _ := json.Marshal(struct {
 		Caller        string

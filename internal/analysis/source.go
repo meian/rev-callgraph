@@ -14,9 +14,9 @@ import (
 	"strings"
 )
 
-// AnalyzeSource converts one file to source-independent declarations and call sites.
-// It deliberately avoids package-wide type checking: mismatched module versions must
-// not prevent the rest of a file from being analyzed.
+// AnalyzeSource は一つのファイルをソース非依存の宣言と呼び出し箇所に変換する。
+// モジュールのバージョン不一致でファイルの残りを解析できなくならないよう、
+// 意図的にパッケージ全体の型検査を行わない。
 func AnalyzeSource(source Source) (SourceModel, error) {
 	return analyzeSource(source, nil)
 }
@@ -542,7 +542,7 @@ func (a *sourceAnalyzer) analyzeBody(fn *Function, d *ast.FuncDecl) {
 				}
 			}
 		case *ast.RangeStmt:
-			// A range element needs its iterable's exact type. Keep it unknown.
+			// range の要素型には反復対象の正確な型が必要なため、unknown のままにする。
 			for _, target := range []ast.Expr{x.Key, x.Value} {
 				if id, ok := target.(*ast.Ident); ok {
 					scope.vars[id.Name] = TypeRef{}
@@ -828,7 +828,7 @@ func (a *sourceAnalyzer) exprType(expr ast.Expr, scope *sourceScope) TypeRef {
 			}
 		}
 	case *ast.IndexExpr:
-		// The indexed type may be a map, slice or generic instantiation.
+		// インデックス対象の型は map、slice、またはジェネリック型の実体化であり得る。
 		return TypeRef{}
 	}
 	return TypeRef{}
@@ -869,13 +869,13 @@ func defaultType(t TypeRef) TypeRef {
 	return t
 }
 
-// AnalyzeExternal reads the named declaration using the host build context.
+// AnalyzeExternal はホストのビルド設定で指定された宣言を読み込む。
 func AnalyzeExternal(packagePath, name string) (*Signature, error) {
 	return AnalyzeExternalContext(packagePath, name, BuildContext{})
 }
 
-// AnalyzeExternalContext reads only files selected by the target build context
-// from a Go standard-library package. A missing symbol returns nil.
+// AnalyzeExternalContext は Go 標準ライブラリのパッケージから、対象のビルド設定で
+// 選択されるファイルだけを読み込む。シンボルが存在しない場合は nil を返す。
 func AnalyzeExternalContext(packagePath, name string, buildContext BuildContext) (*Signature, error) {
 	function, err := AnalyzeExternalFunction(packagePath, name, "", buildContext)
 	if err != nil || function == nil {
@@ -888,10 +888,10 @@ func AnalyzeExternalContext(packagePath, name string, buildContext BuildContext)
 	}, nil
 }
 
-// AnalyzeExternalFunction identifies a standard-library function or a method
-// of the specified receiver, preserving its declared receiver for method expressions.
-// receiver is a canonical type name (optionally prefixed with *); empty selects
-// package-level functions only.
+// AnalyzeExternalFunction は標準ライブラリの関数または指定された receiver の
+// メソッドを特定する。メソッド式では宣言上の receiver を保持する。
+// receiver は正規の型名で、先頭に * を付けてもよい。空の場合はパッケージレベルの
+// 関数だけを対象にする。
 func AnalyzeExternalFunction(packagePath, name, receiver string, buildContext BuildContext) (*Function, error) {
 	return analyzeExternalFunction(packagePath, name, receiver, buildContext, nil)
 }

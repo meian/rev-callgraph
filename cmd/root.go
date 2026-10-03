@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Execute runs the command line application.
+// Execute はコマンドラインアプリケーションを実行する。
 func Execute() {
 	if err := newRootCommand().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

@@ -1,5 +1,5 @@
-// Package analysis implements source-based reverse call analysis. Library-specific
-// syntax trees never cross the source analysis boundary.
+// Package analysis はソースコードに基づく逆呼び出し解析を実装する。
+// 特定のライブラリに依存する構文木は、ソース解析の境界を越えない。
 package analysis
 
 import "context"
@@ -75,9 +75,9 @@ type Source struct {
 	Test                       bool
 }
 
-// Package groups eligible files by module, directory and test variant. Path
-// retains the existing symbol path and need not be unique: bar's external test
-// package and a regular bar_test directory can both have path module/bar_test.
+// Package は対象ファイルをモジュール、ディレクトリ、テスト種別ごとにまとめる。
+// Path は既存のシンボルパスを保持するため、一意とは限らない。bar の外部テスト
+// パッケージと通常の bar_test ディレクトリは、どちらも module/bar_test になり得る。
 type Package struct {
 	Path, Name, Dir string
 	Module          int
@@ -90,8 +90,8 @@ type Workspace struct {
 	Sources  []Source
 }
 
-// TypeRef uses canonical package paths for named Go types, e.g. example.com/p.Item.
-// An empty name means insufficient information, never an incompatible type.
+// TypeRef は名前付き Go 型に正規のパッケージパスを用いる（例: example.com/p.Item）。
+// 名前が空の場合は情報不足を示し、型の不適合を意味しない。
 type TypeRef struct {
 	Name      string
 	Value     string
@@ -168,13 +168,13 @@ func (p TraversalPolicy) Continue(c Compatibility) bool {
 	return c.Status != Incompatible || p.ContinueIncompatible
 }
 
-// Source discovery may scan tokens, but detailed conversion remains in AnalyzeSource.
+// Locator はソースの発見時にトークンを走査する場合があるが、詳細な変換は AnalyzeSource で行う。
 type Locator interface {
 	Definitions(packagePath, name string) []Source
 	Callers(packagePath, name string) []Source
 }
 
-// Analyze is the application entry point; callers need not start the CLI.
+// Analyze はアプリケーションのエントリーポイントであり、呼び出し側で CLI を起動する必要はない。
 func Analyze(ctx context.Context, target string, options Options) (*Result, error) {
 	return AnalyzeWithPolicy(ctx, target, options, TraversalPolicy{})
 }
