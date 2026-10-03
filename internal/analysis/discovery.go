@@ -356,6 +356,7 @@ func versionSuffix(last string, minimum int) string {
 
 type indexedLocator struct {
 	definitions map[string]map[string][]Source
+	packageIDs  map[string][]string
 	callers     map[string][]Source
 }
 
@@ -366,6 +367,7 @@ func NewLocator(w *Workspace) (Locator, error) {
 	}
 	index := &indexedLocator{
 		definitions: make(map[string]map[string][]Source),
+		packageIDs:  make(map[string][]string),
 		callers:     make(map[string][]Source),
 	}
 	for _, source := range w.Sources {
@@ -441,11 +443,16 @@ func NewLocator(w *Workspace) (Locator, error) {
 				calls[literals[i]] = true
 			}
 		}
-		if index.definitions[source.Package] == nil {
-			index.definitions[source.Package] = make(map[string][]Source)
+		packageID := source.PackageID
+		if packageID == "" {
+			packageID = source.Package
+		}
+		if index.definitions[packageID] == nil {
+			index.definitions[packageID] = make(map[string][]Source)
+			index.packageIDs[source.Package] = append(index.packageIDs[source.Package], packageID)
 		}
 		for name := range definitions {
-			index.definitions[source.Package][name] = append(index.definitions[source.Package][name], source)
+			index.definitions[packageID][name] = append(index.definitions[packageID][name], source)
 		}
 		for name := range calls {
 			index.callers[name] = append(index.callers[name], source)
@@ -455,7 +462,11 @@ func NewLocator(w *Workspace) (Locator, error) {
 }
 
 func (l *indexedLocator) Definitions(packagePath, name string) []Source {
-	return append([]Source(nil), l.definitions[packagePath][name]...)
+	var sources []Source
+	for _, packageID := range l.packageIDs[packagePath] {
+		sources = append(sources, l.definitions[packageID][name]...)
+	}
+	return sources
 }
 
 func (l *indexedLocator) Callers(_ string, name string) []Source {
