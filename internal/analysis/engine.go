@@ -51,7 +51,7 @@ type engine struct {
 	functions map[string]Function
 	types     map[string]Type
 	stats     Statistics
-	// これらの cache は一つの engine（ビルド設定とシンボル集合）に属する。
+	// callerCache などのキャッシュは一つの engine（ビルド設定とシンボル集合）に属する。
 	// 必要なファイルの読み込みがすべて成功してからキーを登録する。
 	callerCache     map[string][]Edge
 	definitionCache map[string]bool
