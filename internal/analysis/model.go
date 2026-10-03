@@ -76,8 +76,8 @@ type Source struct {
 }
 
 // Package は対象ファイルをモジュール、ディレクトリ、テスト種別ごとにまとめる。
-// Path は既存のシンボルパスを保持するため、一意とは限らない。bar の外部テスト
-// パッケージと通常の bar_test ディレクトリは、どちらも module/bar_test になり得る。
+// Path は既存のシンボルパスを保持するため、一意とは限らない。
+// bar の外部テストパッケージと通常の bar_test ディレクトリは、どちらも module/bar_test になり得る。
 type Package struct {
 	Path, Name, Dir string
 	Module          int

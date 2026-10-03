@@ -22,7 +22,8 @@ func SupportedFormat(format string) bool {
 	}
 }
 
-// Write は一つの結果を出力する。edges 以外の JSON 形式では、従来の入れ子構造を維持する。
+// Write は一つの結果を出力する。
+// edges 以外の JSON 形式では、従来の入れ子構造を維持する。
 func Write(w io.Writer, result *analysis.Result, format, jsonStyle string) error {
 	if result == nil || result.Root == nil {
 		return fmt.Errorf("empty call graph")

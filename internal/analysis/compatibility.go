@@ -267,8 +267,8 @@ func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) 
 		return fromChannel.direction == toChannel.direction ||
 			fromChannel.direction == "chan" && toChannel.direction != "chan", true
 	}
-	// 完全に判明している単純な型だけを不適合と判定する。不透明な型パラメータや
-	// 複雑な式は、推測で不適合とせず、追加の型情報を必要とする。
+	// 完全に判明している単純な型だけを不適合と判定する。
+	// 不透明な型パラメータや複雑な式は、推測で不適合とせず、追加の型情報を必要とする。
 	if builtin(from) && builtin(to) {
 		return false, true
 	}

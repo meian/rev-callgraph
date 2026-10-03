@@ -221,8 +221,7 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		w.Sources[i].ImportPaths = aliases
 	}
 	// 各ファイルの import エイリアスを取得してから、所属パッケージを決める。
-	// ディレクトリとテスト種別により、外部テストパッケージと、名前がたまたま
-	// _test で終わるディレクトリ内の通常のパッケージを区別する。
+	// ディレクトリとテスト種別により、外部テストパッケージと、名前がたまたま _test で終わるディレクトリ内の通常のパッケージを区別する。
 	type packageKey struct {
 		path, dir    string
 		module       int

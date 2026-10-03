@@ -15,8 +15,7 @@ import (
 )
 
 // AnalyzeSource は一つのファイルをソース非依存の宣言と呼び出し箇所に変換する。
-// モジュールのバージョン不一致でファイルの残りを解析できなくならないよう、
-// 意図的にパッケージ全体の型検査を行わない。
+// モジュールのバージョン不一致でファイルの残りを解析できなくならないよう、意図的にパッケージ全体の型検査を行わない。
 func AnalyzeSource(source Source) (SourceModel, error) {
 	return analyzeSource(source, nil)
 }
@@ -874,8 +873,8 @@ func AnalyzeExternal(packagePath, name string) (*Signature, error) {
 	return AnalyzeExternalContext(packagePath, name, BuildContext{})
 }
 
-// AnalyzeExternalContext は Go 標準ライブラリのパッケージから、対象のビルド設定で
-// 選択されるファイルだけを読み込む。シンボルが存在しない場合は nil を返す。
+// AnalyzeExternalContext は Go 標準ライブラリのパッケージから、対象のビルド設定で選択されるファイルだけを読み込む。
+// シンボルが存在しない場合は nil を返す。
 func AnalyzeExternalContext(packagePath, name string, buildContext BuildContext) (*Signature, error) {
 	function, err := AnalyzeExternalFunction(packagePath, name, "", buildContext)
 	if err != nil || function == nil {
@@ -888,10 +887,10 @@ func AnalyzeExternalContext(packagePath, name string, buildContext BuildContext)
 	}, nil
 }
 
-// AnalyzeExternalFunction は標準ライブラリの関数または指定された receiver の
-// メソッドを特定する。メソッド式では宣言上の receiver を保持する。
-// receiver は正規の型名で、先頭に * を付けてもよい。空の場合はパッケージレベルの
-// 関数だけを対象にする。
+// AnalyzeExternalFunction は標準ライブラリの関数または指定された receiver のメソッドを特定する。
+// メソッド式では宣言上の receiver を保持する。
+// receiver は正規の型名で、先頭に * を付けてもよい。
+// 空の場合はパッケージレベルの関数だけを対象にする。
 func AnalyzeExternalFunction(packagePath, name, receiver string, buildContext BuildContext) (*Function, error) {
 	return analyzeExternalFunction(packagePath, name, receiver, buildContext, nil)
 }
