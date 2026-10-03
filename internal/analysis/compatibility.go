@@ -267,8 +267,8 @@ func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) 
 		return fromChannel.direction == toChannel.direction ||
 			fromChannel.direction == "chan" && toChannel.direction != "chan", true
 	}
-	// Only reject fully known simple types. Opaque type parameters and complex
-	// expressions need further type information rather than a guessed failure.
+	// 完全に判明している単純な型だけを不適合と判定する。
+	// 不透明な型パラメータや複雑な式は、推測で不適合とせず、追加の型情報を必要とする。
 	if builtin(from) && builtin(to) {
 		return false, true
 	}
@@ -315,8 +315,8 @@ func (e *engine) channelType(name string, seen map[string]bool) (channelType, bo
 	return channel, ok
 }
 
-// canonicalArrayElement expands aliases while preserving the identity of
-// defined types. Array elements must be identical, not merely assignable.
+// canonicalArrayElement は定義型の同一性を保ちながら別名を展開する。
+// 配列の要素型は代入可能なだけでは足りず、同一でなければならない。
 func (e *engine) canonicalArrayElement(name string, seen map[string]bool) (string, bool) {
 	if name == "" || seen[name] {
 		return "", false
@@ -368,9 +368,9 @@ func (e *engine) canonicalArrayElement(name string, seen map[string]bool) (strin
 	return name, true
 }
 
-// interfaceMethod finds a method in the Go method set of a named type. At each
-// embedding depth, fields and methods with the same name shadow deeper methods;
-// multiple candidates at that depth are ambiguous.
+// interfaceMethod は名前付き型の Go メソッド集合からメソッドを探す。
+// 埋め込みの各深さでは、同名のフィールドとメソッドがさらに深い位置のメソッドを隠す。
+// 同じ深さに候補が複数ある場合は曖昧と判定する。
 func (e *engine) interfaceMethod(from, name string) (Signature, bool, bool) {
 	type candidate struct {
 		name    string
@@ -472,7 +472,7 @@ func numeric(s string) bool {
 }
 func builtin(s string) bool { return numeric(s) || s == "bool" || s == "string" }
 
-// argumentAssignable checks representability as well as the type of constants.
+// argumentAssignable は定数の型に加え、値を表現できるかも確認する。
 func (e *engine) argumentAssignable(arg TypeRef, to string) (bool, bool) {
 	arg = e.resolveType(arg, map[string]bool{})
 	if !strings.HasPrefix(arg.Name, "untyped ") {
