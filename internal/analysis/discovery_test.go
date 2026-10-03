@@ -84,6 +84,118 @@ func TestDiscoverModulesBuildContextAndSymbolSet(t *testing.T) {
 			t.Errorf("external test package = %q", source.Package)
 		}
 	}
+	type packageKey struct {
+		path   string
+		module int
+	}
+	packages := make(map[packageKey]Package)
+	commonModule := -1
+	for _, pkg := range w.Packages {
+		key := packageKey{
+			path:   pkg.Path,
+			module: pkg.Module,
+		}
+		if _, exists := packages[key]; exists {
+			t.Fatalf("duplicate package %v", key)
+		}
+		packages[key] = pkg
+		if pkg.Path == "example.com/common" {
+			commonModule = pkg.Module
+		}
+		for _, source := range pkg.Sources {
+			if source.Package != pkg.Path || source.Module != pkg.Module {
+				t.Errorf("package %q contains foreign source %+v", pkg.Path, source)
+			}
+		}
+	}
+	if commonModule < 0 {
+		t.Fatal("common package not found")
+	}
+	regularKey := packageKey{
+		path:   "example.com/common",
+		module: commonModule,
+	}
+	externalKey := packageKey{
+		path:   "example.com/common_test",
+		module: commonModule,
+	}
+	if got := len(packages[regularKey].Sources); got != 3 {
+		t.Errorf("internal test package sources = %d, want 3", got)
+	}
+	if got := len(packages[externalKey].Sources); got != 1 {
+		t.Errorf("external test package sources = %d, want 1", got)
+	}
+}
+
+func TestDiscoverSeparatesModulesWithSamePackagePath(t *testing.T) {
+	root := fixture(t, map[string]string{
+		"a/go.mod": "module example.com/p\ngo 1.24\n",
+		"a/p.go":   "package p\nfunc Same() {}\n",
+		"b/go.mod": "module example.com/p\ngo 1.24\n",
+		"b/p.go":   "package p\nfunc Same() {}\n",
+	})
+	w, err := Discover(context.Background(), Options{Dir: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(w.Packages) != 2 || len(w.Modules) != 2 {
+		t.Fatalf("packages/modules = %d/%d, want 2/2", len(w.Packages), len(w.Modules))
+	}
+	seenModules := make(map[int]bool)
+	for _, pkg := range w.Packages {
+		if pkg.Module < 0 || pkg.Module >= len(w.Modules) || seenModules[pkg.Module] {
+			t.Fatalf("invalid or duplicate module: %+v", pkg)
+		}
+		seenModules[pkg.Module] = true
+		if pkg.Path != "example.com/p" || len(pkg.Sources) != 1 || pkg.Dir != w.Modules[pkg.Module].Dir {
+			t.Fatalf("incorrect package ownership: %+v", pkg)
+		}
+		source := pkg.Sources[0]
+		if source.Module != pkg.Module || source.Path != filepath.Join(pkg.Dir, "p.go") {
+			t.Fatalf("package contains source from another module: %+v", pkg)
+		}
+	}
+}
+
+func TestDiscoverSeparatesExternalTestPathCollision(t *testing.T) {
+	root := fixture(t, map[string]string{
+		"go.mod":               "module example.com/p\ngo 1.24\n",
+		"bar/regular.go":       "package bar\nfunc Regular() {}\n",
+		"bar/internal_test.go": "package bar\nfunc Internal() {}\n",
+		"bar/external_test.go": "package bar_test\nfunc SameName() {}\n",
+		"bar_test/regular.go":  "package bar_test\nfunc SameName() {}\n",
+	})
+	w, err := Discover(context.Background(), Options{
+		Dir:       root,
+		SymbolSet: Test,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(w.Packages) != 3 {
+		t.Fatalf("packages = %d, want 3 separate Go packages", len(w.Packages))
+	}
+	var colliding int
+	for _, pkg := range w.Packages {
+		if pkg.Path == "example.com/p/bar" {
+			if len(pkg.Sources) != 2 || pkg.ExternalTest || pkg.Dir != filepath.Join(root, "bar") {
+				t.Fatalf("regular and internal test files must share a package: %+v", pkg)
+			}
+			continue
+		}
+		if pkg.Path != "example.com/p/bar_test" || len(pkg.Sources) != 1 {
+			t.Fatalf("unexpected package: %+v", pkg)
+		}
+		source := pkg.Sources[0]
+		wantExternal := filepath.Base(source.Path) == "external_test.go"
+		if pkg.ExternalTest != wantExternal || pkg.Dir != filepath.Dir(source.Path) {
+			t.Errorf("package ownership metadata = %+v", pkg)
+		}
+		colliding++
+	}
+	if colliding != 2 {
+		t.Fatalf("colliding paths = %d, want 2 distinct packages", colliding)
+	}
 }
 
 func TestDiscoverAmbiguousModuleSeries(t *testing.T) {

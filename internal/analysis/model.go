@@ -74,9 +74,20 @@ type Source struct {
 	Module                     int
 	Test                       bool
 }
+
+// Package groups eligible files by module, directory and test variant. Path
+// retains the existing symbol path and need not be unique: bar's external test
+// package and a regular bar_test directory can both have path module/bar_test.
+type Package struct {
+	Path, Name, Dir string
+	Module          int
+	ExternalTest    bool
+	Sources         []Source
+}
 type Workspace struct {
-	Modules []Module
-	Sources []Source
+	Modules  []Module
+	Packages []Package
+	Sources  []Source
 }
 
 // TypeRef uses canonical package paths for named Go types, e.g. example.com/p.Item.

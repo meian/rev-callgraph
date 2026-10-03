@@ -42,13 +42,17 @@ func (t Target) ID() string {
 }
 
 type engine struct {
-	ctx             context.Context
-	workspace       *Workspace
-	locator         Locator
-	models          map[string]SourceModel
-	functions       map[string]Function
-	types           map[string]Type
-	stats           Statistics
+	ctx       context.Context
+	workspace *Workspace
+	locator   Locator
+	// models is the file-level detailed-analysis state. An absent path has only
+	// been discovered/indexed; a present path has a complete SourceModel.
+	models    map[string]SourceModel
+	functions map[string]Function
+	types     map[string]Type
+	stats     Statistics
+	// These caches belong to one engine (one build context and symbol set).
+	// A key is committed only after all required file loads succeed.
 	callerCache     map[string][]Edge
 	definitionCache map[string]bool
 	externalCache   map[string]*Function
@@ -177,13 +181,13 @@ func (e *engine) definitions(pkg, name string) error {
 		e.stats.CacheHits++
 		return nil
 	}
-	e.definitionCache[key] = true
 	e.stats.LocatorLookups++
 	for _, s := range e.locator.Definitions(pkg, name) {
 		if err := e.load(s); err != nil {
 			return err
 		}
 	}
+	e.definitionCache[key] = true
 	return nil
 }
 func receiverID(receiver string) string { return strings.TrimPrefix(receiver, "*") }
@@ -284,19 +288,34 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 			Kind:   call.ExternalKind,
 		}, nil, nil
 	}
-	for _, s := range e.workspace.Sources {
-		if s.Package == pkg {
-			if !e.sameSeries(caller.Module, s.Module) {
-				return "", Resolution{
-					Status: External,
-					Kind:   "different-module-series",
-				}, nil, nil
-			}
+	// A local package must win over a same-path package in another module,
+	// even when neither module has an inferred version series.
+	for _, p := range e.workspace.Packages {
+		if p.Path == pkg && p.Module == caller.Module {
 			return id, Resolution{
 				Status: Unknown,
 				Kind:   "missing-symbol",
 			}, nil, nil
 		}
+	}
+	packageFound := false
+	for _, p := range e.workspace.Packages {
+		if p.Path != pkg {
+			continue
+		}
+		packageFound = true
+		if e.sameSeries(caller.Module, p.Module) {
+			return id, Resolution{
+				Status: Unknown,
+				Kind:   "missing-symbol",
+			}, nil, nil
+		}
+	}
+	if packageFound {
+		return "", Resolution{
+			Status: External,
+			Kind:   "different-module-series",
+		}, nil, nil
 	}
 	// Read a declaration before marking a standard-library symbol external.
 	if !strings.Contains(strings.Split(pkg, "/")[0], ".") && pkg != "C" {
@@ -454,16 +473,9 @@ func (e *engine) callersFor(targetID string) ([]Edge, error) {
 	}
 	callers, cached := e.callerCache[targetID]
 	if !cached {
-		e.stats.LocatorLookups++
-		for _, source := range e.locator.Callers(symbol.Package, symbol.Name) {
-			if err = e.load(source); err != nil {
-				return nil, err
-			}
-		}
-		// Loading definitions may extend the function index; use a stable snapshot.
-		funcs := make([]Function, 0, len(e.functions))
-		for _, f := range e.functions {
-			funcs = append(funcs, f)
+		funcs, err := e.callerCandidates(symbol)
+		if err != nil {
+			return nil, err
 		}
 		for _, f := range funcs {
 			for _, call := range f.Calls {
@@ -506,6 +518,24 @@ func (e *engine) callersFor(targetID string) ([]Edge, error) {
 	})
 
 	return callers, nil
+}
+
+// callerCandidates starts from a symbol name, loads the indexed candidate
+// files, then snapshots the available functions for call resolution. The
+// locator deliberately admits false positives across packages.
+func (e *engine) callerCandidates(symbol Target) ([]Function, error) {
+	e.stats.LocatorLookups++
+	for _, source := range e.locator.Callers(symbol.Package, symbol.Name) {
+		if err := e.load(source); err != nil {
+			return nil, err
+		}
+	}
+	// Resolving a call may load other definitions, so iterate a stable snapshot.
+	funcs := make([]Function, 0, len(e.functions))
+	for _, f := range e.functions {
+		funcs = append(funcs, f)
+	}
+	return funcs, nil
 }
 
 // edgeOutcomeKey preserves independent compatibility outcomes while retaining
