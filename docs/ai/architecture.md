@@ -34,7 +34,7 @@ caller 計算結果は同じ engine の固定された候補集合に対して�
 
 `Discover` は `go.mod` を収集し、nested module 境界を確定してから、symbol set と build context に合う Go source を列挙する。module path の major suffix を優先し、suffix がなければ workspace の require major から source module の系列を推定する。一意でない系列は空値のままとする。`replace` は旧 version・新 path・新 version を保持し、現在の require に適用できるものだけを解決と系列推定に利用する。解析時には major の完全一致を要求するが minor・patch は要求しない。`v0` と `v1` は分離する。
 
-`NewLocator` は対象 file の token を一度走査して、定義名と識別子名から候補 file の index を作る。`Definitions(packagePath, name)` と `Callers(packagePath, name)` は候補を返すだけで、呼び出しと確定しない。`Callers` は見落としを防ぐため package を越えて広めに候補を返す。`AnalyzeSource` は要求された file だけを AST 解析し、独自モデルへ変換する。関数値とメソッド式は別 file の定義でも symbol 名をモデルに残す。`callersFor` は起点の symbol 名と無関係な call を解決前に除外し、同じ caller が他の関数を多数呼んでいても不要な定義 source を詳細解析しない。定義、source model、外部宣言、symbol ごとの caller と互換性判定の結果は `engine` の実行単位で cache する。`Statistics` の `DiscoveredSources`、`AnalyzedSources`、`LocatorLookups`、`ResolutionLookups`、`CacheHits` でこの動作を検証できる。
+`NewLocator` は対象 file の token を一度走査して、定義名と識別子名から候補 file の index を作る。定義索引は `Source.PackageID` ごとに分け、`Definitions(packagePath, name)` は同じ公開 import path に属する identity の候補を集約して返す。`Callers(packagePath, name)` は候補を返すだけで、呼び出しと確定しない。`Callers` は見落としを防ぐため package を越えて広めに候補を返す。`AnalyzeSource` は要求された file だけを AST 解析し、独自モデルへ変換する。関数値とメソッド式は別 file の定義でも symbol 名をモデルに残す。`callersFor` は起点の symbol 名と無関係な call を解決前に除外し、同じ caller が他の関数を多数呼んでいても不要な定義 source を詳細解析しない。定義、source model、外部宣言、symbol ごとの caller と互換性判定の結果は `engine` の実行単位で cache する。`Statistics` の `DiscoveredSources`、`AnalyzedSources`、`LocatorLookups`、`ResolutionLookups`、`CacheHits` でこの動作を検証できる。
 
 ## Resolution、Compatibility、traversal
 

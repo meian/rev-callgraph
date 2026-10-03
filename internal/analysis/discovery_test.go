@@ -438,6 +438,38 @@ func TestLocatorDefinitionsAndCallers(t *testing.T) {
 	}
 }
 
+func TestLocatorSeparatesCollidingPackageIdentities(t *testing.T) {
+	root := fixture(t, map[string]string{
+		"go.mod":               "module example.com/p\ngo 1.24\n",
+		"bar/external_test.go": "package bar_test\nfunc SameName() {}\n",
+		"bar_test/regular.go":  "package bar_test\nfunc SameName() {}\n",
+	})
+	w, err := Discover(context.Background(), Options{
+		Dir:       root,
+		SymbolSet: Test,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	locator, err := NewLocator(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := locator.(*indexedLocator)
+	path := "example.com/p/bar_test"
+	if got := len(index.packageIDs[path]); got != 2 {
+		t.Fatalf("package identities = %d, want 2", got)
+	}
+	for _, packageID := range index.packageIDs[path] {
+		if got := len(index.definitions[packageID]["SameName"]); got != 1 {
+			t.Errorf("definitions for %q = %d, want 1", packageID, got)
+		}
+	}
+	if got := locator.Definitions(path, "SameName"); len(got) != 2 {
+		t.Errorf("public package lookup = %d sources, want 2", len(got))
+	}
+}
+
 func sourceNames(sources []Source) []string {
 	names := make([]string, 0, len(sources))
 	for _, source := range sources {
