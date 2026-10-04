@@ -132,6 +132,54 @@ func TestDefinitionCacheSeparatesPackagesWithSamePath(t *testing.T) {
 	}
 }
 
+func TestDefinitionCacheDoesNotConfuseLegacyPathWithPackageID(t *testing.T) {
+	root := fixture(t, map[string]string{
+		"a/p.go": "package p\nfunc Target() {}\n",
+		"b/p.go": "package p\nfunc Target() {}\n",
+	})
+	packagePath := "example.com/p"
+	// 旧形式の空 PackageID と新形式の identity が同じ公開 path に属する場合を再現する。
+	first := Source{
+		Path:    filepath.Join(root, "a", "p.go"),
+		Package: packagePath,
+	}
+	second := Source{
+		Path:      filepath.Join(root, "b", "p.go"),
+		Package:   packagePath,
+		PackageID: "distinct-package",
+	}
+	locator, err := NewLocator(&Workspace{Sources: []Source{first, second}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &engine{
+		ctx:             context.Background(),
+		locator:         locator,
+		models:          map[string]SourceModel{},
+		functions:       map[string]Function{},
+		types:           map[string]Type{},
+		definitionCache: map[string]bool{},
+	}
+	if err := os.Remove(second.Path); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.definitions(packagePath, "Target"); err == nil {
+		t.Fatal("second package load should fail")
+	}
+	if err := e.definitions(packagePath, "Target"); err == nil {
+		t.Fatal("cached legacy package must not skip failed package")
+	}
+	if err := os.WriteFile(second.Path, []byte("package p\nfunc Target() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.definitions(packagePath, "Target"); err != nil {
+		t.Fatal(err)
+	}
+	if !e.definitionCache[second.PackageID+"\x00Target"] {
+		t.Fatal("second package completion was not cached")
+	}
+}
+
 func TestMissingSymbolChecksAllPackageSeries(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
