@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 language: "ja"
 reviews:
   profile: "assertive"
@@ -10,7 +11,4 @@ knowledge_base:
   code_guidelines:
     filePatterns:
       - files: "docs/ai/architecture.md"
-        applyTo:
-          - "**/*"
-          - ".*"
-          - ".*/**/*"
+        applyTo: "**/*, .*, .*/**/*"
