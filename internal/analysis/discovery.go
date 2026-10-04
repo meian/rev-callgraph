@@ -219,6 +219,7 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		externalTest bool
 	}
 	packages := make(map[packageKey]int)
+	packageIndex := make([]int, len(w.Sources))
 	for i := range w.Sources {
 		source := &w.Sources[i]
 		key := packageKey{
@@ -241,6 +242,7 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 			})
 		}
 		source.PackageID = w.Packages[index].ID
+		packageIndex[i] = index
 	}
 	// 同じ module の import 対応は共有し、ファイルごとの再探索を避ける。
 	namesByModule := make(map[int]map[string]string)
@@ -269,12 +271,8 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		source := &w.Sources[i]
 		source.PackageNames = namesByModule[source.Module]
 		source.ImportPaths = pathsByModule[source.Module]
-		for j := range w.Packages {
-			if w.Packages[j].ID == source.PackageID {
-				w.Packages[j].Sources = append(w.Packages[j].Sources, *source)
-				break
-			}
-		}
+		index := packageIndex[i]
+		w.Packages[index].Sources = append(w.Packages[index].Sources, *source)
 	}
 	return nil
 }

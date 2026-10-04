@@ -17,6 +17,7 @@ func packageScope(path, identity string) string {
 	return path + "\x00" + hex.EncodeToString([]byte(identity)) + "\x00"
 }
 
+// splitPackageScope は内部名前空間から公開 path と package identity を取り出す。
 func splitPackageScope(path string) (string, string) {
 	start := strings.IndexByte(path, 0)
 	if start < 0 || !strings.HasSuffix(path, "\x00") {
@@ -160,6 +161,7 @@ func (e *engine) targetSymbol(target Target) (string, error) {
 	return target.ID(), nil
 }
 
+// symbolLabel は公開 ID に所在地と package 種別を付けた表示名を返す。
 func (e *engine) symbolLabel(id string) string {
 	target, err := ParseTarget(id)
 	if err != nil {
