@@ -10,6 +10,15 @@ module 系列は、module path の `/v2` 以降の suffix または `gopkg.in` �
 
 symbol set は `runtime`（既定）と `test` です。`runtime` は `*_test.go` を除外します。`test` はそれらと `package foo_test` の external test package を含めます。対象 GOOS/GOARCH を指定すると、その環境に合う filename suffix と `//go:build` 条件の source を選びます。未指定の軸には実行環境の値を使います。cgo と custom build tags は内部の build context で扱いますが、初期 CLI に専用フラグはありません。対象 GOOS/GOARCH が実行環境と異なる場合、cgo は既定で無効です。
 
+通常ファイルと同じ宣言名の internal test は同じ package に属し、異なる宣言名の external test は別の解析用 identity を持ちます。
+外部テストの関数・型はその package 内の同一・別ファイルから参照でき、通常 import の共有定義候補には含めません。
+外部テストから通常 package への明示 import は維持します。
+定義・型比較・caller cache・逆探索・循環判定は package identity を含めて扱い、同じ公開 ID による上書きや経路の混合を防ぎます。
+
+公開ターゲットに複数の定義が対応する場合は、CLI/API とも `ambiguous target` と候補所在地を含むエラーを返します。
+定義のないターゲットの検索は維持し、曖昧でない既存の入力形式は変えません。
+所在地によるターゲットの追加指定構文はありません。
+
 ## 解決と互換性
 
 各 call edge は別々の `resolution` と `compatibility` を持ちます。
@@ -29,7 +38,9 @@ cgo は `import "C"` に対応し、preamble や source と同じディレクト
 
 逆探索は `compatible` と `unknown` の辺では継続します。`incompatible` の caller 自身は結果へ残し、その caller より上位では停止します。`external` は終端です。同一 caller から同一 callee への呼び出しでも、解決・互換性・非互換理由が異なる場合は別の辺・木の枝として残します。そのため一部の call site が非互換でも、別の互換な call site を通る上位探索は継続します。判定が同じ呼び出しは表示をまとめます。cycle は表示して再帰を止めます。`--max-depth` が正の値なら起点を深さ 0 として探索を制限し、`0` 以下なら深さ制限はありません。
 
-import に明示された alias を優先し、省略時はワークスペースで収集した package 宣言名、または対象 build context で取得した標準ライブラリの package 宣言名を使います。例えば `math/rand/v2` は `rand` として認識します。宣言名を取得できない場合は import path の末尾を使います。
+import に明示された alias を優先し、省略時はワークスペースで収集した package 宣言名、または対象 build context で取得した標準ライブラリの package 宣言名を使います。例えば `math/rand/v2` は `rand` として認識します。
+`foo/` が `package bar`、`bar/` が `package foo` でも、各 import path を基準に対応付けます。
+宣言名から親・兄弟ディレクトリを検索しません。宣言名を取得できない場合は import path の末尾を使います。
 
 channel 型は送信専用・受信専用・双方向を区別します。双方向から片方向への代入は型名と要素型の条件を満たす場合に許容し、方向が異なる片方向同士や片方向から双方向への代入は非互換です。
 
@@ -43,6 +54,11 @@ channel 型は送信専用・受信専用・双方向を区別します。双方
 - 埋め込み要素を持つ interface への代入互換性は、適合を確定できる場合でも `unknown` になることがあります。`unknown` の辺からの探索は継続します（[#61](https://github.com/meian/rev-callgraph/issues/61)）。
 
 ## 出力
+
+同じ結果内に同じ公開 ID の別シンボルが現れた場合、名前に `[/absolute/package/directory; package]` または `[/absolute/package/directory; external-test]` を付記します。
+全形式で同じ区別を使い、JSON の nodes や DOT の頂点を誤って統合しません。
+結果内で衝突しない ID と既存 JSON 構造は維持します。
+内部 identity の符号化文字列は出力しません。
 
 `--format tree`（既定）は起点と呼び出し元の木を 2 スペースずつ字下げします。main と cycle にはそれぞれ `[main]`、`(cycled)` を付けます。通常の `resolved` / `compatible` 辺以外には `[resolution=..., compatibility=...]` と issue の kind を付けます。
 

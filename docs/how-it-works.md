@@ -28,7 +28,9 @@ flowchart TD
     Modules --> Files[対象ファイルを列挙し所属を紐付け]
     Files --> Index[対象ファイル全体の索引を作成]
     Index --> Root[起点の定義候補を詳細解析]
-    Root --> Search[ターゲットを呼ぶ候補ファイルを取得]
+    Root --> Unique{起点の定義を一意に選べるか}
+    Unique -->|複数の定義| Error[所在地付きの曖昧性エラーを返す]
+    Unique -->|一つまたは定義なし| Search[ターゲットを呼ぶ候補ファイルを取得]
     Search --> Parse[候補を詳細解析]
     Parse --> Match[呼び先を照合し互換性を判定]
     Match --> Keep[呼び出し元を結果に追加]
@@ -38,7 +40,8 @@ flowchart TD
     Next -->|ない| Back{前のターゲットに戻れるか}
     Back -->|はい| Resume[前のターゲットの残りを確認]
     Resume --> Next
-    Back -->|いいえ| Output[結果を出力]
+    Back -->|いいえ| Display[表示名を戻し同名の別シンボルに所在地を付記]
+    Display --> Output[結果を出力]
 ```
 
 - **準備**：`go.mod` の依存・置換情報を読み、対象ファイルを所属モジュール・パッケージへ紐付けます。
@@ -88,14 +91,15 @@ flowchart TD
     Next -->|ある| Name{対象と同じ名前か}
     Name -->|いいえ| Next
     Name -->|はい| Resolve[必要な定義を補い呼び先を照合]
-    Resolve --> Match{対象と同じ関数か}
+    Resolve --> Match{所属パッケージも含め対象と同じ関数か}
     Match -->|いいえ| Next
     Match -->|はい| Judge[互換性を判定して関係を保存]
     Judge --> Next
 ```
 
 索引は広めに候補を返すため、名前だけで呼び出し元とは確定しません。
-モジュールの系列なども照合し、対象の関数に一致する関係だけを採用します。
+モジュールの系列とパッケージの identity も照合し、対象の関数に一致する関係だけを採用します。
+外部テストと通常ディレクトリの公開名が同じでも、関数・型・caller・循環の判定は分けます。
 同じ major 系列なら minor・patch の違いは許容しますが、系列の一致は API の互換性を保証しません。
 解決中に別の関数定義が増える場合があるため、走査する関数一覧は事前に固定します。
 空の結果も、探索が成功した後に保存します。
@@ -107,7 +111,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Need[必要な定義を要求] --> Package{次の package はあるか}
+    Need[必要な定義を要求] --> Scope[ローカルの所属または import 先の通常 package を選ぶ]
+    Scope --> Package{次の package はあるか}
     Package -->|ない| Back[元の照合・判定へ戻る]
     Package -->|ある| Done{この package の探索は完了済みか}
     Done -->|はい| Package
@@ -124,6 +129,9 @@ flowchart TD
 
 未解析と、探索した結果の定義なしは別です。
 内部索引では同じ公開 import path に複数の package があっても、定義検索の完了を package ごとに管理します。
+外部テストのローカル参照は同じ外部テスト package の別ファイルも検索します。
+通常の import から外部テストの定義は検索せず、import path に対応する通常 package の宣言名を使います。
+宣言名がディレクトリ名と違っても、親・兄弟ディレクトリへ検索を広げません。
 定義の候補が空でも、その package の探索は完了しますが、それは定義の存在を意味しません。
 途中の package で失敗した場合、先に成功した package の完了は保持し、次回は失敗した package から再試行します。
 公開 Locator や索引にない path では、従来どおり path 単位で完了を管理します。
@@ -168,7 +176,8 @@ flowchart TD
 | 呼び出し元を次の対象にする探索 | [engine.go](../internal/analysis/engine.go) の `AnalyzeWithPolicy` 内の `visit` |
 | 候補の選別 | 同ファイルの `callersFor`・`callerCandidates` |
 | 定義の追加解析 | 同ファイルの `definitions`・`load` |
-| 呼び先の解決 | 同ファイルの `resolve`・`method` |
+| 起点の曖昧性検査・内部 identity と表示名の対応 | [identity.go](../internal/analysis/identity.go) の `targetSymbol`・`scopedSource`・`displayResult` |
+| 呼び先の解決 | [engine.go](../internal/analysis/engine.go) の `resolve`・`method` |
 | 互換性の判定 | [compatibility.go](../internal/analysis/compatibility.go) |
 
 操作方法は [使い方](usage.md)、判定の制限は [仕様](spec.md)、内部の不変条件は [解析アーキテクチャ](ai/architecture.md) を参照してください。

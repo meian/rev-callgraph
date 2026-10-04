@@ -152,3 +152,55 @@ func TestCLIMixedCompatibilityKeepsValidRoute(t *testing.T) {
 		t.Fatalf("normal route or issue lost: %s", out)
 	}
 }
+
+func TestCLICollidingExternalTestPackages(t *testing.T) {
+	dir := t.TempDir()
+	for name, content := range map[string]string{
+		"go.mod":               "module example.com/collision\ngo 1.24\n",
+		"foo/regular.go":       "package foo\nfunc Target() {}\n",
+		"foo/external_test.go": "package foo_test\nimport \"example.com/collision/foo\"\nfunc Caller() { foo.Target() }\n",
+		"foo_test/regular.go":  "package foo_test\nimport \"example.com/collision/foo\"\nfunc Caller() { foo.Target() }\n",
+	} {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, format := range []string{"tree", "json", "dot"} {
+		t.Run(format, func(t *testing.T) {
+			cmd := exec.Command("go", "run", ".", "example.com/collision/foo.Target", "--dir", dir, "--symbol-set", "test", "--format", format, "--json-style", "edges")
+			var stdout, stderr bytes.Buffer
+			cmd.Stdout, cmd.Stderr = &stdout, &stderr
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("CLI %s: %v: %s", format, err, stderr.String())
+			}
+			text := stdout.String()
+			if !strings.Contains(text, "; external-test]") || !strings.Contains(text, "; package]") || strings.Contains(text, `\u0000`) || strings.ContainsRune(text, 0) {
+				t.Fatalf("package identities missing or leaked: %s", text)
+			}
+			if format == "json" {
+				var document struct {
+					Nodes []string `json:"nodes"`
+					Edges []struct {
+						Caller string `json:"caller"`
+					} `json:"edges"`
+				}
+				if err := json.Unmarshal(stdout.Bytes(), &document); err != nil {
+					t.Fatal(err)
+				}
+				if len(document.Nodes) != 3 || len(document.Edges) != 2 || document.Edges[0].Caller == document.Edges[1].Caller {
+					t.Fatalf("colliding JSON nodes merged: %+v", document)
+				}
+			}
+		})
+	}
+	cmd := exec.Command("go", "run", ".", "example.com/collision/foo_test.Caller", "--dir", dir, "--symbol-set", "test")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := cmd.Run(); err == nil || !strings.Contains(stderr.String(), "ambiguous target") || stdout.Len() != 0 {
+		t.Fatalf("ambiguous target: stdout=%q stderr=%q err=%v", stdout.String(), stderr.String(), err)
+	}
+}

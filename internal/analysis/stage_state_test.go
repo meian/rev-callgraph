@@ -265,7 +265,7 @@ func TestInterfaceMethodKeepsPackageIdentity(t *testing.T) {
 		types:           map[string]Type{},
 		definitionCache: map[string]bool{},
 	}
-	method, ok, err := e.method("example.com/p.Contract", "Run", map[string]bool{})
+	method, ok, err := e.method(packageScope("example.com/p", workspace.Sources[0].PackageID)+".Contract", "Run", map[string]bool{})
 	if err != nil || !ok {
 		t.Fatalf("method = %+v, %t, %v", method, ok, err)
 	}

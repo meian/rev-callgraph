@@ -457,16 +457,16 @@ func TestLocatorSeparatesCollidingPackageIdentities(t *testing.T) {
 	}
 	index := locator.(*indexedLocator)
 	path := "example.com/p/bar_test"
-	if got := len(index.packageIDs[path]); got != 2 {
-		t.Fatalf("package identities = %d, want 2", got)
+	if got := len(index.packageIDs[path]); got != 1 {
+		t.Fatalf("importable package identities = %d, want 1", got)
 	}
-	for _, packageID := range index.packageIDs[path] {
-		if got := len(index.definitions[packageID]["SameName"]); got != 1 {
-			t.Errorf("definitions for %q = %d, want 1", packageID, got)
+	for _, pkg := range w.Packages {
+		if got := len(index.definitionsInPackage(pkg.ID, "SameName")); got != 1 {
+			t.Errorf("definitions for %q = %d, want 1", pkg.ID, got)
 		}
 	}
-	if got := locator.Definitions(path, "SameName"); len(got) != 2 {
-		t.Errorf("public package lookup = %d sources, want 2", len(got))
+	if got := locator.Definitions(path, "SameName"); len(got) != 1 || got[0].ExternalTest {
+		t.Errorf("public package lookup = %+v, want only the regular package", got)
 	}
 }
 

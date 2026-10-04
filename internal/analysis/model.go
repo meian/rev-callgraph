@@ -72,6 +72,7 @@ type Source struct {
 	Path, Package, PackageID, PackageName string
 	Build                                 BuildContext
 	Module                                int
+	ExternalTest                          bool
 	Test                                  bool
 }
 

@@ -184,9 +184,6 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		if rel != "." {
 			pkg += "/" + filepath.ToSlash(rel)
 		}
-		if test && strings.HasSuffix(file.Name.Name, "_test") {
-			pkg += "_test"
-		}
 		w.Sources = append(w.Sources, Source{
 			Path:        path,
 			Package:     pkg,
@@ -199,28 +196,22 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 	if err != nil {
 		return err
 	}
-	names := map[string]string{}
+	// 通常の宣言名を先に確認し、名前が _test で終わる通常 package の internal test を区別する。
+	regularNames := map[string]string{}
 	for _, source := range w.Sources {
-		names[source.Package] = source.PackageName
+		if !source.Test || !strings.HasSuffix(source.PackageName, "_test") {
+			regularNames[filepath.Dir(source.Path)] = source.PackageName
+		}
 	}
 	for i := range w.Sources {
-		w.Sources[i].PackageNames = names
-		consumer := w.Modules[w.Sources[i].Module]
-		aliases := map[string]string{}
-		for required := range consumer.Replaces {
-			for _, module := range w.Modules {
-				if requireTargetsModule(consumer, required, module) {
-					for _, source := range w.Sources {
-						if source.Package == module.Path || strings.HasPrefix(source.Package, module.Path+"/") {
-							aliases[required+strings.TrimPrefix(source.Package, module.Path)] = source.Package
-						}
-					}
-				}
-			}
+		source := &w.Sources[i]
+		source.ExternalTest = source.Test && strings.HasSuffix(source.PackageName, "_test") &&
+			regularNames[filepath.Dir(source.Path)] != source.PackageName
+		if source.ExternalTest {
+			source.Package += "_test"
 		}
-		w.Sources[i].ImportPaths = aliases
 	}
-	// 各ファイルの import エイリアスを取得してから、所属パッケージを決める。
+	// 各ファイルの所属パッケージを決める。
 	// ディレクトリとテスト種別により、外部テストパッケージと、名前がたまたま _test で終わるディレクトリ内の通常のパッケージを区別する。
 	type packageKey struct {
 		path, dir    string
@@ -234,7 +225,7 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 			path:         source.Package,
 			dir:          filepath.Dir(source.Path),
 			module:       source.Module,
-			externalTest: source.Test && strings.HasSuffix(source.PackageName, "_test"),
+			externalTest: source.ExternalTest,
 		}
 		index, ok := packages[key]
 		if !ok {
@@ -250,7 +241,40 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 			})
 		}
 		source.PackageID = w.Packages[index].ID
-		w.Packages[index].Sources = append(w.Packages[index].Sources, *source)
+	}
+	// 同じ module の import 対応は共有し、ファイルごとの再探索を避ける。
+	namesByModule := make(map[int]map[string]string)
+	pathsByModule := make(map[int]map[string]string)
+	for module, consumer := range w.Modules {
+		names := map[string]string{}
+		paths := map[string]string{}
+		for _, pkg := range w.Packages {
+			if pkg.ExternalTest {
+				continue
+			}
+			if selected, ok := importPackage(w, module, pkg.Path); ok {
+				names[pkg.Path] = selected.Name
+			}
+			for required := range consumer.Replaces {
+				module := w.Modules[pkg.Module]
+				if requireTargetsModule(consumer, required, module) {
+					path := required + strings.TrimPrefix(pkg.Path, module.Path)
+					paths[path] = pkg.Path
+				}
+			}
+		}
+		namesByModule[module], pathsByModule[module] = names, paths
+	}
+	for i := range w.Sources {
+		source := &w.Sources[i]
+		source.PackageNames = namesByModule[source.Module]
+		source.ImportPaths = pathsByModule[source.Module]
+		for j := range w.Packages {
+			if w.Packages[j].ID == source.PackageID {
+				w.Packages[j].Sources = append(w.Packages[j].Sources, *source)
+				break
+			}
+		}
 	}
 	return nil
 }
@@ -449,7 +473,9 @@ func NewLocator(w *Workspace) (Locator, error) {
 		}
 		if index.definitions[packageID] == nil {
 			index.definitions[packageID] = make(map[string][]Source)
-			index.packageIDs[source.Package] = append(index.packageIDs[source.Package], packageID)
+			if !source.ExternalTest {
+				index.packageIDs[source.Package] = append(index.packageIDs[source.Package], packageID)
+			}
 		}
 		for name := range definitions {
 			index.definitions[packageID][name] = append(index.definitions[packageID][name], source)

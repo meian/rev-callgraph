@@ -58,6 +58,7 @@ type engine struct {
 	externalCache   map[string]*Function
 	packageNames    *standardPackageNameCache
 	build           BuildContext
+	importScopes    map[int]scopedImports
 }
 
 func AnalyzeWithPolicy(ctx context.Context, target string, options Options, policy TraversalPolicy) (*Result, error) {
@@ -88,12 +89,13 @@ func AnalyzeWithPolicy(ctx context.Context, target string, options Options, poli
 	}
 	e.stats.DiscoveredSources = len(w.Sources)
 	// 存在しないシンボルも有効な起点とし、削除された API の呼び出し元を表示できるようにする。
-	if err = e.definitions(t.Package, t.Name); err != nil {
+	rootID, err := e.targetSymbol(t)
+	if err != nil {
 		return nil, err
 	}
 	root := &Node{
-		Name:    t.ID(),
-		Main:    e.functions[t.ID()].Main,
+		Name:    rootID,
+		Main:    e.functions[rootID].Main,
 		Callers: []*Node{},
 	}
 	result := &Result{
@@ -150,6 +152,7 @@ func AnalyzeWithPolicy(ctx context.Context, target string, options Options, poli
 		return nil, err
 	}
 	result.Stats = e.stats
+	e.displayResult(result)
 	return result, nil
 }
 func (e *engine) load(s Source) error {
@@ -161,7 +164,7 @@ func (e *engine) load(s Source) error {
 		return err
 	}
 	s.Build = e.build
-	model, err := analyzeSource(s, e.packageNames)
+	model, err := analyzeSource(e.scopedSource(s), e.packageNames)
 	if err != nil {
 		return fmt.Errorf("analyze %s: %w", s.Path, err)
 	}
@@ -179,6 +182,9 @@ func (e *engine) definitions(pkg, name string) error {
 	// 公開 Locator の契約は path 検索のまま保ち、内部索引が使える場合だけ
 	// package ごとに完了状態を記録する。
 	if locator, ok := e.locator.(*indexedLocator); ok {
+		if _, packageID := splitPackageScope(pkg); packageID != "" {
+			return e.loadDefinitions(packageID, name, locator.definitionsInPackage(packageID, name))
+		}
 		if packageIDs := locator.definitionPackageIDs(pkg); len(packageIDs) != 0 {
 			for _, packageID := range packageIDs {
 				if err := e.loadDefinitions(packageID, name, locator.definitionsInPackage(packageID, name)); err != nil {
@@ -312,7 +318,7 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 	}
 	// どちらのモジュールでもバージョン系列を推定できない場合でも、別モジュールにある同じパスのパッケージよりローカルパッケージを優先する。
 	for _, p := range e.workspace.Packages {
-		if p.Path == pkg && p.Module == caller.Module {
+		if matchesPackage(p, pkg) && p.Module == caller.Module {
 			return id, Resolution{
 				Status: Unknown,
 				Kind:   "missing-symbol",
@@ -321,7 +327,7 @@ func (e *engine) resolve(caller Function, call Call) (string, Resolution, *Funct
 	}
 	packageFound := false
 	for _, p := range e.workspace.Packages {
-		if p.Path != pkg {
+		if !matchesPackage(p, pkg) {
 			continue
 		}
 		packageFound = true
@@ -510,7 +516,11 @@ func (e *engine) callersFor(targetID string) ([]Edge, error) {
 					return nil, err
 				}
 				if id != targetID {
-					continue
+					// 不存在の公開起点だけは、各 package 内の未解決参照を集める。
+					if _, identity := splitPackageScope(symbol.Package); identity != "" || publicSymbol(id) != targetID {
+						continue
+					}
+					id = targetID
 				}
 				comp := e.compatibility(call, callee, res)
 				callers = append(callers, Edge{
