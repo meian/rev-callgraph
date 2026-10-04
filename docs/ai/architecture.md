@@ -60,7 +60,9 @@ engine 内の構文変換では `scopedSource` がローカル package と impor
 内部名は公開 path と符号化した `PackageID` を組み合わせ、関数・型・複合型・alias・field・signature・call に同じ identity を伝播する。
 `engine.functions`、`engine.types`、`callerCache`、逆探索の ancestors、辺の重複判定にはこの内部名を使う。
 import の対応は module 内で共有し、宣言名ではなく import path と既存の module・require・replace の対応から通常 package を選ぶ。
+`Workspace` は通常 package の候補を path ごとに索引化し、module と path ごとの選択結果を discovery と engine で再利用する。
 同順位に複数候補があれば、読み込み順で一つに決めない。
+`replace` の alias は未変換の参照先 path から選び、更新中の対応表を再参照しないため、相互に入れ替わる置換でも参照先の identity が混ざらない。
 外部テストのローカル名は自身の `PackageID`、明示 import は参照先の通常 package に属する。
 `definitionCache` は内部 locator の package identity ごとに完了を記録し、公開 Locator の実装では従来の path 単位で記録する。
 
@@ -124,4 +126,4 @@ target parse、module 系列、symbol set、build context、locator、source mod
 - `channel_regression_test.go`: channelの方向、定義型とalias、入れ子channelを含む要素型の同一性、互換経路の継続と非互換境界。
 - `external_alias_regression_test.go`: 標準ライブラリ型のalias経由のメソッド、連鎖・ポインタ・メソッド式、独立した定義型の除外。
 
-- `package_scope_test.go`: 宣言名の入れ替わり、明示 alias、外部テストの関数・型の参照範囲、読み込み順・cache・循環・表示上の ID 衝突、曖昧なターゲットの拒否。
+- `package_scope_test.go`: 宣言名の入れ替わり、明示 alias、外部テストの関数・型の参照範囲、読み込み順・cache・循環・表示上の ID 衝突、曖昧なターゲットの拒否、相互に入れ替わる `replace` の参照先。

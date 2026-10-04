@@ -245,17 +245,21 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		packageIndex[i] = index
 	}
 	// 同じ module の import 対応は共有し、ファイルごとの再探索を避ける。
+	// 通常 package の候補を path ごとに索引化し、engine の選択結果にも再利用する。
+	w.indexPackages()
 	namesByModule := make(map[int]map[string]string)
 	pathsByModule := make(map[int]map[string]string)
 	for module, consumer := range w.Modules {
 		names := map[string]string{}
 		paths := map[string]string{}
+		for path := range w.packagesByPath {
+			if selected, ok := importPackage(w, module, path); ok {
+				names[path] = selected.Name
+			}
+		}
 		for _, pkg := range w.Packages {
 			if pkg.ExternalTest {
 				continue
-			}
-			if selected, ok := importPackage(w, module, pkg.Path); ok {
-				names[pkg.Path] = selected.Name
 			}
 			for required := range consumer.Replaces {
 				module := w.Modules[pkg.Module]

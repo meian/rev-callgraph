@@ -40,15 +40,35 @@ func publicSymbol(id string) string {
 	return target.ID()
 }
 
+// packageSelection は曖昧な path も含め、一度計算した選択結果を保持する。
+type packageSelection struct {
+	pkg Package
+	ok  bool
+}
+
+// indexPackages は通常 package の候補を公開 path ごとに一度だけまとめる。
+func (w *Workspace) indexPackages() {
+	if w.packagesByPath != nil {
+		return
+	}
+	w.packagesByPath = make(map[string][]Package)
+	for _, pkg := range w.Packages {
+		if !pkg.ExternalTest {
+			w.packagesByPath[pkg.Path] = append(w.packagesByPath[pkg.Path], pkg)
+		}
+	}
+}
+
 // importPackage は path と既存の module 対応から通常 package を選ぶ。
 // 宣言名や近隣ディレクトリを検索せず、同順位の候補が複数あれば確定しない。
 func importPackage(w *Workspace, module int, path string) (Package, bool) {
+	w.indexPackages()
+	if result, ok := w.importSelections[module][path]; ok {
+		return result.pkg, result.ok
+	}
 	var selected Package
 	best, count := 0, 0
-	for _, pkg := range w.Packages {
-		if pkg.Path != path || pkg.ExternalTest {
-			continue
-		}
+	for _, pkg := range w.packagesByPath[path] {
 		rank := 1
 		if pkg.Module == module {
 			rank = 3
@@ -71,7 +91,15 @@ func importPackage(w *Workspace, module int, path string) (Package, bool) {
 			count++
 		}
 	}
-	return selected, count == 1
+	if w.importSelections == nil {
+		w.importSelections = make(map[int]map[string]packageSelection)
+	}
+	if w.importSelections[module] == nil {
+		w.importSelections[module] = make(map[string]packageSelection)
+	}
+	result := packageSelection{pkg: selected, ok: count == 1}
+	w.importSelections[module][path] = result
+	return result.pkg, result.ok
 }
 
 // scopedImports は同じ module 内で共有する内部 import 対応を保持する。
@@ -91,6 +119,7 @@ func (e *engine) scopedSource(source Source) Source {
 		source.ImportPaths, source.PackageNames = imports.paths, imports.names
 		return source
 	}
+	e.workspace.indexPackages()
 	paths := make(map[string]string)
 	names := make(map[string]string)
 	for path, name := range source.PackageNames {
@@ -99,16 +128,19 @@ func (e *engine) scopedSource(source Source) Source {
 	for path, canonical := range source.ImportPaths {
 		paths[path] = canonical
 	}
-	for _, pkg := range e.workspace.Packages {
-		if selected, ok := importPackage(e.workspace, source.Module, pkg.Path); ok {
+	for path := range e.workspace.packagesByPath {
+		if selected, ok := importPackage(e.workspace, source.Module, path); ok {
 			scope := packageScope(selected.Path, selected.ID)
-			paths[pkg.Path] = scope
+			paths[path] = scope
 			names[scope] = selected.Name
 		}
 	}
+	// 元の canonical path から選び、更新中の paths を再参照しない。
 	for path, canonical := range source.ImportPaths {
-		if scope := paths[canonical]; scope != "" {
+		if selected, ok := importPackage(e.workspace, source.Module, canonical); ok {
+			scope := packageScope(selected.Path, selected.ID)
 			paths[path] = scope
+			names[scope] = selected.Name
 		}
 	}
 	if e.importScopes == nil {

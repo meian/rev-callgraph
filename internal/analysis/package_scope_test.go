@@ -332,3 +332,44 @@ func TestCollidingImportUsesRegularDeclarationName(t *testing.T) {
 		t.Fatalf("regular declaration name lost: %+v", edge)
 	}
 }
+
+// TestMutualReplaceKeepsDistinctImportTargets は入れ替わる replace の参照先を固定する。
+func TestMutualReplaceKeepsDistinctImportTargets(t *testing.T) {
+	files := map[string]string{
+		"app/go.mod": `module example.com/app
+
+go 1.24
+
+require (
+ example.com/a v1.0.0
+ example.com/b v1.0.0
+)
+replace example.com/a => ../b
+replace example.com/b => ../a
+`,
+		"app/app.go": `package app
+import (
+ fromA "example.com/a"
+ fromB "example.com/b"
+)
+func Caller() { fromA.Target("text"); fromB.Target(1) }
+`,
+		"a/go.mod": "module example.com/a\ngo 1.24\n",
+		"a/a.go":   "package a\nfunc Target(int) {}\n",
+		"b/go.mod": "module example.com/b\ngo 1.24\n",
+		"b/b.go":   "package b\nfunc Target(string) {}\n",
+	}
+	root := fixture(t, files)
+	for range 12 {
+		for _, target := range []string{"example.com/a.Target", "example.com/b.Target"} {
+			result, err := Analyze(context.Background(), target, Options{Dir: root})
+			if err != nil {
+				t.Fatal(err)
+			}
+			edge := regressionEdge(t, result, "example.com/app.Caller", target)
+			if len(result.Edges) != 1 || edge.Resolution.Status != Resolved || edge.Compatibility.Status != Compatible {
+				t.Fatalf("replace mapping for %s: %+v", target, result.Edges)
+			}
+		}
+	}
+}
