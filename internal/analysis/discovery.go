@@ -249,9 +249,11 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 	w.indexPackages()
 	namesByModule := make(map[int]map[string]string)
 	pathsByModule := make(map[int]map[string]string)
+	w.importAliases = make(map[int]map[string]Package)
 	for module, consumer := range w.Modules {
 		names := map[string]string{}
 		paths := map[string]string{}
+		aliases := map[string]Package{}
 		for path := range w.packagesByPath {
 			if selected, ok := importPackage(w, module, path); ok {
 				names[path] = selected.Name
@@ -266,10 +268,12 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 				if requireTargetsModule(consumer, required, module) {
 					path := required + strings.TrimPrefix(pkg.Path, module.Path)
 					paths[path] = pkg.Path
+					aliases[path] = pkg
 				}
 			}
 		}
 		namesByModule[module], pathsByModule[module] = names, paths
+		w.importAliases[module] = aliases
 	}
 	for i := range w.Sources {
 		source := &w.Sources[i]

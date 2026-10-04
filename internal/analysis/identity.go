@@ -135,9 +135,13 @@ func (e *engine) scopedSource(source Source) Source {
 			names[scope] = selected.Name
 		}
 	}
-	// 元の canonical path から選び、更新中の paths を再参照しない。
+	// 置換元の import path から選び、同じ canonical path を持つ置換先を区別する。
 	for path, canonical := range source.ImportPaths {
-		if selected, ok := importPackage(e.workspace, source.Module, canonical); ok {
+		selected, ok := e.workspace.importAliases[source.Module][path]
+		if !ok {
+			selected, ok = importPackage(e.workspace, source.Module, canonical)
+		}
+		if ok {
 			scope := packageScope(selected.Path, selected.ID)
 			paths[path] = scope
 			names[scope] = selected.Name

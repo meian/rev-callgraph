@@ -92,6 +92,7 @@ type Workspace struct {
 	Sources          []Source
 	packagesByPath   map[string][]Package
 	importSelections map[int]map[string]packageSelection
+	importAliases    map[int]map[string]Package
 }
 
 // TypeRef は名前付き Go 型に正規のパッケージパスを用いる（例: example.com/p.Item）。

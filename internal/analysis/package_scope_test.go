@@ -373,3 +373,42 @@ func Caller() { fromA.Target("text"); fromB.Target(1) }
 		}
 	}
 }
+
+// TestDistinctReplacementsWithSameModulePath は置換先の module path が重なる場合を確認する。
+func TestDistinctReplacementsWithSameModulePath(t *testing.T) {
+	files := map[string]string{
+		"app/go.mod": `module example.com/app
+
+go 1.24
+
+require (
+ example.com/a v1.0.0
+ example.com/b v1.0.0
+)
+replace example.com/a => ../one
+replace example.com/b => ../two
+`,
+		"app/app.go": `package app
+import (
+ one "example.com/a"
+ two "example.com/b"
+)
+func Caller() { one.A(); two.B() }
+`,
+		"one/go.mod": "module example.com/lib\ngo 1.24\n",
+		"one/lib.go": "package lib\nfunc A() {}\n",
+		"two/go.mod": "module example.com/lib\ngo 1.24\n",
+		"two/lib.go": "package lib\nfunc B() {}\n",
+	}
+	root := fixture(t, files)
+	for _, target := range []string{"example.com/lib.A", "example.com/lib.B"} {
+		result, err := Analyze(context.Background(), target, Options{Dir: root})
+		if err != nil {
+			t.Fatal(err)
+		}
+		edge := regressionEdge(t, result, "example.com/app.Caller", target)
+		if len(result.Edges) != 1 || edge.Resolution.Status != Resolved || edge.Compatibility.Status != Compatible {
+			t.Fatalf("replace mapping for %s: %+v", target, result.Edges)
+		}
+	}
+}
