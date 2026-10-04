@@ -84,6 +84,8 @@ func (Item) Run() {}
 func Other() { SameName() }
 func Accept(regular.Item) {}
 func Own(Item) {}
+func Return() regular.Item { return regular.Item("") }
+func BadReturn() { var x Item; x = Return(); _ = x }
 func ImportRegular() { regular.SameName(1) }
 `,
 		"foo_test/regular.go": `package foo_test
@@ -248,6 +250,38 @@ func TestCollidingTargetAndResultDisplay(t *testing.T) {
 	result, err = Analyze(context.Background(), "example.com/m/foo_test.SameName", options)
 	if err != nil || result.Root.Name != "example.com/m/foo_test.SameName" || len(result.Root.Callers) != 2 {
 		t.Fatalf("runtime target must remain unambiguous: %+v, %v", result, err)
+	}
+}
+
+// TestCollidingTypeDiagnostics は同名の型を診断上で区別できることを確認する。
+func TestCollidingTypeDiagnostics(t *testing.T) {
+	dir := fixture(t, collisionFiles())
+	for _, test := range []struct {
+		target, caller, kind string
+	}{
+		{"Accept", "Caller", "argument-type"},
+		{"Return", "BadReturn", "result-type"},
+	} {
+		result, err := Analyze(context.Background(), "example.com/m/foo_test."+test.target, Options{
+			Dir:       dir,
+			SymbolSet: Test,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		edge := regressionEdge(t, result, "example.com/m/foo_test."+test.caller, "example.com/m/foo_test."+test.target)
+		if len(edge.Compatibility.Issues) != 1 || edge.Compatibility.Issues[0].Kind != test.kind {
+			t.Fatalf("issues = %+v", edge.Compatibility.Issues)
+		}
+		message := edge.Compatibility.Issues[0].Message
+		for _, want := range []string{
+			"example.com/m/foo_test.Item [" + filepath.ToSlash(filepath.Join(dir, "foo")) + "; external-test]",
+			"example.com/m/foo_test.Item [" + filepath.ToSlash(filepath.Join(dir, "foo_test")) + "; package]",
+		} {
+			if !strings.Contains(message, want) {
+				t.Fatalf("diagnostic does not identify both types: %q", message)
+			}
+		}
 	}
 }
 

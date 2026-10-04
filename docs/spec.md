@@ -58,6 +58,7 @@ channel 型は送信専用・受信専用・双方向を区別します。双方
 同じ結果内に同じ公開 ID の別シンボルが現れた場合、名前に `[/absolute/package/directory; package]` または `[/absolute/package/directory; external-test]` を付記します。
 全形式で同じ区別を使い、JSON の nodes や DOT の頂点を誤って統合しません。
 結果内で衝突しない ID と既存 JSON 構造は維持します。
+引数型・戻り値型の診断で同じ公開型名が異なる package identity を指す場合も、型名に所在地と package 種別を付記します。
 内部 identity の符号化文字列は出力しません。
 
 `--format tree`（既定）は起点と呼び出し元の木を 2 スペースずつ字下げします。main と cycle にはそれぞれ `[main]`、`(cycled)` を付けます。通常の `resolved` / `compatible` 辺以外には `[resolution=..., compatibility=...]` と issue の kind を付けます。

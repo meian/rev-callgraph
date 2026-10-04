@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // packageScope は構文変換と型比較に共通の内部名前空間を与える。
@@ -216,6 +218,30 @@ func (e *engine) symbolLabel(id string) string {
 	return publicSymbol(id)
 }
 
+// replaceDiagnosticType は型名の境界を保って診断内の内部 ID を表示名に変える。
+func replaceDiagnosticType(message, id, label string) string {
+	var result strings.Builder
+	for {
+		index := strings.Index(message, id)
+		if index < 0 {
+			result.WriteString(message)
+			return result.String()
+		}
+		end := index + len(id)
+		if end < len(message) {
+			next, _ := utf8.DecodeRuneInString(message[end:])
+			if next == '_' || unicode.IsLetter(next) || unicode.IsDigit(next) {
+				result.WriteString(message[:end])
+				message = message[end:]
+				continue
+			}
+		}
+		result.WriteString(message[:index])
+		result.WriteString(label)
+		message = message[end:]
+	}
+}
+
 // displayResult は探索後にだけ公開名へ戻す。
 // 実際の結果に現れた同名シンボルは所在地を付記し、出力側の集約でも区別する。
 func (e *engine) displayResult(result *Result) {
@@ -244,10 +270,32 @@ func (e *engine) displayResult(result *Result) {
 		replacements = append(replacements, packageScope(pkg.Path, pkg.ID), pkg.Path)
 	}
 	diagnostics := strings.NewReplacer(replacements...)
+	typesByName := make(map[string][]string)
+	for id := range e.types {
+		name := publicSymbol(id)
+		typesByName[name] = append(typesByName[name], id)
+	}
+	var collidingTypes []string
+	typeLabels := make(map[string]string)
+	for _, ids := range typesByName {
+		if len(ids) > 1 {
+			collidingTypes = append(collidingTypes, ids...)
+			for _, id := range ids {
+				typeLabels[id] = e.symbolLabel(id)
+			}
+		}
+	}
+	sort.Slice(collidingTypes, func(i, j int) bool {
+		return len(collidingTypes[i]) > len(collidingTypes[j])
+	})
 	convertEdge := func(edge *Edge) {
 		edge.Caller, edge.Callee = label(edge.Caller), label(edge.Callee)
 		for i := range edge.Compatibility.Issues {
-			edge.Compatibility.Issues[i].Message = diagnostics.Replace(edge.Compatibility.Issues[i].Message)
+			message := edge.Compatibility.Issues[i].Message
+			for _, id := range collidingTypes {
+				message = replaceDiagnosticType(message, id, typeLabels[id])
+			}
+			edge.Compatibility.Issues[i].Message = diagnostics.Replace(message)
 		}
 	}
 	var visit func(*Node)

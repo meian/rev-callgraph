@@ -70,6 +70,7 @@ import の対応は module 内で共有し、宣言名ではなく import path �
 不存在の公開起点は削除 API の caller 検索用に維持する。
 探索後にだけ `displayResult` が内部名を公開名へ戻す。
 結果内で公開 ID が重なる別シンボルは、所在地と `package` / `external-test` を付記し、tree・JSON・DOT 側の集約でも区別する。
+診断内で公開型名が衝突する場合も、型名に所在地と package 種別を付記する。
 内部名前空間は出力や診断メッセージへ露出させない。
 
 `Workspace.Sources` は所在確認済みの file、`NewLocator` の成功後はその全 file の token index が構築済みとなる。`Locator.Definitions` は package path と symbol 名から、`Locator.Callers` は symbol 名から候補 file を返す。候補は確定した定義・caller ではない。package から探索を始め、必要な候補 file だけを `engine.load` が詳細解析する。`engine.models` に path がなければ詳細解析は未実施、あれば `SourceModel` が完成している。`functions` と `types` は完成した file model から作る。新しい source I/O 削減や package の遅延発見はここでは行わない。
@@ -126,4 +127,4 @@ target parse、module 系列、symbol set、build context、locator、source mod
 - `channel_regression_test.go`: channelの方向、定義型とalias、入れ子channelを含む要素型の同一性、互換経路の継続と非互換境界。
 - `external_alias_regression_test.go`: 標準ライブラリ型のalias経由のメソッド、連鎖・ポインタ・メソッド式、独立した定義型の除外。
 
-- `package_scope_test.go`: 宣言名の入れ替わり、明示 alias、外部テストの関数・型の参照範囲、読み込み順・cache・循環・表示上の ID 衝突、曖昧なターゲットの拒否、相互に入れ替わる `replace` の参照先。
+- `package_scope_test.go`: 宣言名の入れ替わり、明示 alias、外部テストの関数・型の参照範囲、読み込み順・cache・循環・表示と診断の ID 衝突、曖昧なターゲットの拒否、置換先の identity を区別する `replace` の参照先。
