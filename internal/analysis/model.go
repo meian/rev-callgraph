@@ -72,6 +72,7 @@ type Source struct {
 	Path, Package, PackageID, PackageName string
 	Build                                 BuildContext
 	Module                                int
+	ExternalTest                          bool
 	Test                                  bool
 }
 
@@ -86,9 +87,12 @@ type Package struct {
 	Sources             []Source
 }
 type Workspace struct {
-	Modules  []Module
-	Packages []Package
-	Sources  []Source
+	Modules          []Module
+	Packages         []Package
+	Sources          []Source
+	packagesByPath   map[string][]Package
+	importSelections map[int]map[string]packageSelection
+	importAliases    map[int]map[string]Package
 }
 
 // TypeRef は名前付き Go 型に正規のパッケージパスを用いる（例: example.com/p.Item）。

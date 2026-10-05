@@ -41,9 +41,9 @@
 ```text
 CLI -> Discover (module 発見 -> source 列挙と package 構築)
     -> NewLocator (file の token index)
-    -> target 定義探索 -> callersFor (候補 file の AnalyzeSource)
+    -> target 定義探索・曖昧性検査 -> callersFor (候補 file の AnalyzeSource)
     -> resolve -> compatibility -> reverse traversal
-    -> output.Write
+    -> displayResult -> output.Write
 ```
 
 `internal/analysis/model.go` の `Workspace`、`Package`、`SourceModel`、`Function`、`Call`、`Resolution`、`Compatibility`、`Node`、`Edge` が処理間のモデルである。`go/ast` の型は `AnalyzeSource` の内部で使い、後続へ渡さない。`TypeRef` は名前・定数値・未解決の field 参照を持ち、別 file の型定義が必要になった時点で追加解決する。`internal/output` は結果を tree、JSON、DOT に変換する。旧解析・出力 package は削除し、CLI の実行経路をこの構成に一本化した。
@@ -54,16 +54,28 @@ CLI -> Discover (module 発見 -> source 列挙と package 構築)
 
 1 回の `AnalyzeWithPolicy` は、指定された build context と symbol set に対して新しい `Workspace`、`Locator`、`engine` を作る。異なる解析条件の間で cache は共有しない。`discoverModules` は `go.mod` を発見し module の系列と nested module の所有境界を確定する。`discoverSources` は対象条件に合う file を列挙し、package 宣言と import header を読み、`Workspace.Packages` を作る。package の file 所属は path・所有 module・directory・external test の区別で管理する。通常 file と internal test file は同じ package、external test file は別 package に属する。`Package.ID` と各 `Source.PackageID` は、この区別を含む一回の解析内だけの identity である。`bar` の external test と通常の `bar_test` directory はどちらも従来の symbol path `module/bar_test` を持つが、異なる `Package.ID` に属するため `Sources` が混在しない。同名の `main` package でも import path は directory ごとに異なる。
 
-locator と関数・型の公開 ID は引き続き従来の package path を使う。
+公開 `AnalyzeSource` の関数・型 ID と、CLI/API のターゲット指定は従来の package path を使う。
 `Function.PackageID` と `Type.PackageID` は source の解析用 identity を保持する。
-現時点の `engine.functions` と `engine.types` は公開 ID を key とし、`callerCache` も `PackageID` ごとには分離しない。
+engine 内の構文変換では `scopedSource` がローカル package と import 先を別々の内部名前空間へ対応付ける。
+内部名は公開 path と符号化した `PackageID` を組み合わせ、関数・型・複合型・alias・field・signature・call に同じ identity を伝播する。
+`engine.functions`、`engine.types`、`callerCache`、逆探索の ancestors、辺の重複判定にはこの内部名を使う。
+import の対応は module 内で共有し、宣言名ではなく import path と既存の module・require・replace の対応から通常 package を選ぶ。
+`Workspace` は通常 package の候補を path ごとに索引化し、module と path ごとの選択結果を discovery と engine で再利用する。
+同順位に複数候補があれば、読み込み順で一つに決めない。
+`replace` の alias は未変換の参照先 path から選び、更新中の対応表を再参照しないため、相互に入れ替わる置換でも参照先の identity が混ざらない。
+外部テストのローカル名は自身の `PackageID`、明示 import は参照先の通常 package に属する。
 `definitionCache` は内部 locator の package identity ごとに完了を記録し、公開 Locator の実装では従来の path 単位で記録する。
-`PackageID` は後続の symbol 索引と caller cache を分離するためにも保持する。
-このため、上記の external test と通常 package が同名の symbol を持つ場合などの公開 ID 衝突は既存の制約として残る。
+
+`targetSymbol` は外部テストを含む定義を確認し、公開 ID に複数の定義が対応すると `ambiguous target` と所在地を返す。
+不存在の公開起点は削除 API の caller 検索用に維持する。
+探索後にだけ `displayResult` が内部名を公開名へ戻す。
+結果内で公開 ID が重なる別シンボルは、所在地と `package` / `external-test` を付記し、tree・JSON・DOT 側の集約でも区別する。
+診断内で公開型名が衝突する場合も、型名に所在地と package 種別を付記する。
+内部名前空間は出力や診断メッセージへ露出させない。
 
 `Workspace.Sources` は所在確認済みの file、`NewLocator` の成功後はその全 file の token index が構築済みとなる。`Locator.Definitions` は package path と symbol 名から、`Locator.Callers` は symbol 名から候補 file を返す。候補は確定した定義・caller ではない。package から探索を始め、必要な候補 file だけを `engine.load` が詳細解析する。`engine.models` に path がなければ詳細解析は未実施、あれば `SourceModel` が完成している。`functions` と `types` は完成した file model から作る。新しい source I/O 削減や package の遅延発見はここでは行わない。
 
-`definitionCache` は内部 locator の package identity と名前、`callerCache` は完全な公開 symbol ID を key とする。両者は探索と必要な file の読み込みが成功した後だけ記録する。`models` にも成功した解析結果だけを記録する。未ロードは不存在を意味しない。候補を読み終えた後に初めて「定義なし」と判断でき、`resolve` は workspace 内 package の symbol 不在を `unknown/missing-symbol`、外部宣言を確認できない場合を `unknown/definition-unavailable` とする。file の読み込み・解析が失敗した場合はエラーを返し、失敗した package の完了 cache を記録しないので同じ解析条件で再試行できる。別 package の成功済み完了状態は再訪時に再利用する。module/source 発見や index 構築の失敗時は engine を作らず解析全体を失敗させる。
+`definitionCache` は内部 locator の package identity と名前、`callerCache` は package identity を含む内部 symbol ID を key とする。両者は探索と必要な file の読み込みが成功した後だけ記録する。`models` にも成功した解析結果だけを記録する。未ロードは不存在を意味しない。候補を読み終えた後に初めて「定義なし」と判断でき、`resolve` は workspace 内 package の symbol 不在を `unknown/missing-symbol`、外部宣言を確認できない場合を `unknown/definition-unavailable` とする。file の読み込み・解析が失敗した場合はエラーを返し、失敗した package の完了 cache を記録しないので同じ解析条件で再試行できる。別 package の成功済み完了状態は再訪時に再利用する。module/source 発見や index 構築の失敗時は engine を作らず解析全体を失敗させる。
 
 caller 計算結果は同じ engine の固定された候補集合に対して再利用する。後続の別条件や追加発見された package に持ち越さない。逆方向 traversal の cycle は現在経路の ancestors、max depth は現在経路の深さで判定し、別経路で同じ symbol に到達しても分岐を残す。表示用の同等辺だけをまとめる。
 
@@ -71,11 +83,13 @@ caller 計算結果は同じ engine の固定された候補集合に対して�
 
 `Discover` は `go.mod` を収集し、nested module 境界を確定してから、symbol set と build context に合う Go source を列挙する。module path の major suffix を優先し、suffix がなければ workspace の require major から source module の系列を推定する。一意でない系列は空値のままとする。`replace` は旧 version・新 path・新 version を保持し、現在の require に適用できるものだけを解決と系列推定に利用する。解析時には major の完全一致を要求するが minor・patch は要求しない。`v0` と `v1` は分離する。
 
-`NewLocator` は対象 file の token を一度走査して、定義名と識別子名から候補 file の index を作る。定義索引は `Source.PackageID` ごとに分け、`Definitions(packagePath, name)` は同じ公開 import path に属する identity の候補を集約して返す。`Callers(packagePath, name)` は候補を返すだけで、呼び出しと確定しない。`Callers` は見落としを防ぐため package を越えて広めに候補を返す。`AnalyzeSource` は要求された file だけを AST 解析し、独自モデルへ変換する。関数値とメソッド式は別 file の定義でも symbol 名をモデルに残す。`callersFor` は起点の symbol 名と無関係な call を解決前に除外し、同じ caller が他の関数を多数呼んでいても不要な定義 source を詳細解析しない。定義、source model、外部宣言、symbol ごとの caller と互換性判定の結果は `engine` の実行単位で cache する。`Statistics` の `DiscoveredSources`、`AnalyzedSources`、`LocatorLookups`、`ResolutionLookups`、`CacheHits` でこの動作を検証できる。
+`NewLocator` は対象 file の token を一度走査して、定義名と識別子名から候補 file の index を作る。定義索引は `Source.PackageID` ごとに分け、`Definitions(packagePath, name)` は同じ公開 import path に属する通常 package の候補だけを集約して返す。
+外部テストの定義は identity ごとの索引に保持し、その package 内からの検索で再利用する。`Callers(packagePath, name)` は候補を返すだけで、呼び出しと確定しない。`Callers` は見落としを防ぐため package を越えて広めに候補を返す。`AnalyzeSource` は要求された file だけを AST 解析し、独自モデルへ変換する。関数値とメソッド式は別 file の定義でも symbol 名をモデルに残す。`callersFor` は起点の symbol 名と無関係な call を解決前に除外し、同じ caller が他の関数を多数呼んでいても不要な定義 source を詳細解析しない。定義、source model、外部宣言、symbol ごとの caller と互換性判定の結果は `engine` の実行単位で cache する。`Statistics` の `DiscoveredSources`、`AnalyzedSources`、`LocatorLookups`、`ResolutionLookups`、`CacheHits` でこの動作を検証できる。
 
 ## Resolution、Compatibility、traversal
 
-import 名は明示 alias、workspace の package 宣言名、標準ライブラリの package 宣言名の順で取得する。標準ライブラリの名前取得には解析対象の build context を渡し、取得できなければ import path の末尾へフォールバックする。通常 source と外部宣言で同じ名前取得を使用し、`math/rand/v2` のように path 末尾と宣言名が異なる package を扱う。
+import 名は明示 alias、import path で選んだ通常 package の宣言名、標準ライブラリの package 宣言名の順で取得する。
+ディレクトリ末尾と宣言名が入れ替わっていても path を維持し、宣言名を理由に親・兄弟ディレクトリを探さない。標準ライブラリの名前取得には解析対象の build context を渡し、取得できなければ import path の末尾へフォールバックする。通常 source と外部宣言で同じ名前取得を使用し、`math/rand/v2` のように path 末尾と宣言名が異なる package を扱う。
 
 `resolve` は追加 source の読込後に `resolved`、`external`、`unknown` を決める。未ロードの状態を失敗とみなさない。ワークスペース内の定義、alias、field と embedded method、interface の宣言、標準ライブラリ宣言、cgo 宣言を扱う。標準ライブラリにも同一の target build context を渡す。外部探索は package/name/receiver を照合し、receiver を保持した独自 Function を cache する。外部宣言の parse 失敗も nil として cache し、初回・再利用時とも `unknown` / `definition-unavailable` を返す。source 変換では block に加えて制御文と case/communication 節の scope を出入りし、init 宣言による shadow が文外へ漏れないようにする。cgo は preamble と単純な local header 宣言を読む。宣言の取れない外部 symbol は `unknown` とし、存在を仮定した `external` にしない。
 
@@ -112,3 +126,5 @@ target parse、module 系列、symbol set、build context、locator、source mod
 - `package_name_regression_test.go`: 標準ライブラリの宣言package名、明示alias、workspace名の優先順位と対象build context。
 - `channel_regression_test.go`: channelの方向、定義型とalias、入れ子channelを含む要素型の同一性、互換経路の継続と非互換境界。
 - `external_alias_regression_test.go`: 標準ライブラリ型のalias経由のメソッド、連鎖・ポインタ・メソッド式、独立した定義型の除外。
+
+- `package_scope_test.go`: 宣言名の入れ替わり、明示 alias、外部テストの関数・型の参照範囲、読み込み順・cache・循環・表示と診断の ID 衝突、曖昧なターゲットの拒否、置換先の identity を区別する `replace` の参照先。
