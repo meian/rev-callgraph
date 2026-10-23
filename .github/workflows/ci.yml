@@ -55,8 +55,7 @@ jobs:
 
       - run: go vet ./...
 
-      # Staticcheck 2026.2rc1 supports Go 1.27. Keep the tool version pinned.
-      - run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.0-rc.1 ./...
+      - run: go tool staticcheck ./...
 
   test:
     name: Test
