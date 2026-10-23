@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
@@ -25,13 +26,18 @@ require (
 	github.com/spf13/viper v1.10.1 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	honnef.co/go/tools v0.8.2 // indirect
 )
 
 tool (
 	github.com/posener/complete/gocomplete
 	github.com/spf13/cobra-cli
+	honnef.co/go/tools/cmd/staticcheck
 )

@@ -55,8 +55,7 @@ jobs:
 
       - run: go vet ./...
 
-      # Staticcheck 2026.2.2 supports the export data format used by Go 1.27.3.
-      - run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
+      - run: go tool staticcheck ./...
 
   test:
     name: Test
