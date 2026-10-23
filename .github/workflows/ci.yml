@@ -55,8 +55,8 @@ jobs:
 
       - run: go vet ./...
 
-      # Staticcheck 2026.2rc1 supports Go 1.27. Keep the tool version pinned.
-      - run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.0-rc.1 ./...
+      # Staticcheck 2026.2.2 supports the export data format used by Go 1.27.3.
+      - run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
 
   test:
     name: Test
