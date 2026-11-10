@@ -616,9 +616,10 @@ func (a *sourceAnalyzer) functionValue(expr ast.Expr, scope *sourceScope) (Call,
 		}
 		if recv := a.exprType(x.X, scope).Name; recv != "" && recv != "any" {
 			return Call{
-				Package:  packageFromType(recv),
-				Receiver: recv,
-				Name:     x.Sel.Name,
+				Package:             packageFromType(recv),
+				Receiver:            recv,
+				ReceiverAddressable: a.addressable(x.X, scope),
+				Name:                x.Sel.Name,
 			}, true
 		}
 	}
@@ -651,6 +652,7 @@ unwrapped:
 	case *ast.Ident:
 		if ref, ok := scope.funcs[f.Name]; ok {
 			c.Package, c.Name, c.Receiver, c.Indirect, c.MethodExpression = ref.Package, ref.Name, ref.Receiver, false, ref.MethodExpression
+			c.ReceiverAddressable = ref.ReceiverAddressable
 		} else if _, shadow := scope.vars[f.Name]; !shadow && !builtinType(f.Name) {
 			path := a.source.Package
 			if _, local := a.functions[f.Name]; !local {
@@ -678,6 +680,7 @@ unwrapped:
 			break
 		}
 		recvRef := a.exprType(f.X, scope)
+		c.ReceiverAddressable = a.addressable(f.X, scope)
 		recv := recvRef.Name
 		if recvRef.FieldBase != nil {
 			c.ReceiverRef = &recvRef
@@ -804,6 +807,14 @@ func (a *sourceAnalyzer) exprType(expr ast.Expr, scope *sourceScope) TypeRef {
 		return t
 	case *ast.ParenExpr:
 		return a.exprType(x.X, scope)
+	case *ast.StarExpr:
+		t := a.exprType(x.X, scope)
+		name := a.underlyingType(t.Name)
+		if !strings.HasPrefix(name, "*") {
+			return TypeRef{}
+		}
+		t.Name = strings.TrimPrefix(name, "*")
+		return t
 	case *ast.SelectorExpr:
 		if id, ok := x.X.(*ast.Ident); ok {
 			if a.importPath(id.Name, scope) != "" {
@@ -829,8 +840,89 @@ func (a *sourceAnalyzer) exprType(expr ast.Expr, scope *sourceScope) TypeRef {
 			}
 		}
 	case *ast.IndexExpr:
-		// インデックス対象の型は map、slice、またはジェネリック型の実体化であり得る。
+		return a.indexElement(a.exprType(x.X, scope).Name)
+	}
+	return TypeRef{}
+}
+
+// addressable は構文と判明している型から判定し、不足する型情報を推測しない。
+func (a *sourceAnalyzer) addressable(expr ast.Expr, scope *sourceScope) *bool {
+	value := false
+	switch x := expr.(type) {
+	case *ast.ParenExpr:
+		return a.addressable(x.X, scope)
+	case *ast.Ident:
+		if _, ok := scope.vars[x.Name]; !ok {
+			return nil
+		}
+		value = x.Obj == nil || x.Obj.Kind != ast.Con
+	case *ast.StarExpr:
+		value = true
+	case *ast.SelectorExpr:
+		base := a.addressable(x.X, scope)
+		if base != nil && *base {
+			return base
+		}
+		name := a.underlyingType(a.exprType(x.X, scope).Name)
+		if strings.HasPrefix(name, "*") {
+			value = true
+		} else if name != "struct" {
+			return nil
+		}
+	case *ast.IndexExpr:
+		name := a.underlyingType(a.exprType(x.X, scope).Name)
+		if strings.HasPrefix(name, "*") {
+			name = "*" + a.underlyingType(strings.TrimPrefix(name, "*"))
+		}
+		switch {
+		case strings.HasPrefix(name, "[]"), strings.HasPrefix(name, "*["):
+			value = true
+		case strings.HasPrefix(name, "["):
+			return a.addressable(x.X, scope)
+		case strings.HasPrefix(name, "map["), name == "string":
+		default:
+			return nil
+		}
+	case *ast.CompositeLit, *ast.CallExpr, *ast.UnaryExpr, *ast.BasicLit, *ast.TypeAssertExpr:
+	default:
+		return nil
+	}
+	return &value
+}
+
+func (a *sourceAnalyzer) underlyingType(name string) string {
+	seen := map[string]bool{}
+	for a.underlying[name] != "" && !seen[name] {
+		seen[name] = true
+		name = a.underlying[name]
+	}
+	return name
+}
+
+// indexElement は配列・slice・map の要素型だけを返す。
+// map のキーに配列などが使われる場合は、対応する閉じ括弧まで読み飛ばす。
+func (a *sourceAnalyzer) indexElement(name string) TypeRef {
+	name = a.underlyingType(name)
+	if strings.HasPrefix(name, "*") {
+		name = a.underlyingType(strings.TrimPrefix(name, "*"))
+		if !strings.HasPrefix(name, "[") || strings.HasPrefix(name, "[]") {
+			return TypeRef{}
+		}
+	}
+	if !strings.HasPrefix(name, "[") && !strings.HasPrefix(name, "map[") {
 		return TypeRef{}
+	}
+	depth := 0
+	for i, c := range name {
+		switch c {
+		case '[':
+			depth++
+		case ']':
+			depth--
+			if depth == 0 {
+				return TypeRef{Name: name[i+1:]}
+			}
+		}
 	}
 	return TypeRef{}
 }

@@ -93,7 +93,21 @@ import 名は明示 alias、import path で選んだ通常 package の宣言名�
 
 `resolve` は追加 source の読込後に `resolved`、`external`、`unknown` を決める。未ロードの状態を失敗とみなさない。ワークスペース内の定義、alias、field と embedded method、interface の宣言、標準ライブラリ宣言、cgo 宣言を扱う。標準ライブラリにも同一の target build context を渡す。外部探索は package/name/receiver を照合し、receiver を保持した独自 Function を cache する。外部宣言の parse 失敗も nil として cache し、初回・再利用時とも `unknown` / `definition-unavailable` を返す。source 変換では block に加えて制御文と case/communication 節の scope を出入りし、init 宣言による shadow が文外へ漏れないようにする。cgo は preamble と単純な local header 宣言を読む。宣言の取れない外部 symbol は `unknown` とし、存在を仮定した `external` にしない。
 
-`compatibility` は resolution とは独立して、既知の signature、引数、結果、method expression などを比較する。メソッド式の第一引数には `call.Receiver` を使い、その型の method set を検証する。非互換でも解決できた関係は残すため、通常のメソッド呼び出しと共通の宣言探索では値・ポインタの差だけを理由に排除しない。明確な不一致は `Issue{Kind, Message}` とともに `incompatible`、型情報が足りない場合は `unknown` にする。`TraversalPolicy` は非互換辺を越えるかどうかを切り替える。CLI の初期設定では非互換 caller を残してその先を停止し、`unknown` は継続する。call site ごとの判定後、同じ caller/callee・resolution・compatibility・issues の辺のみ表示をまとめる。異なる判定をまとめて非互換を優先してはならない。cycle と max depth は graph 構築時に処理する。
+`compatibility` は resolution とは独立して、既知の signature、引数、結果、method expression などを比較する。
+メソッド式の第一引数には `call.Receiver` を使い、その型の method set を検証する。
+通常のメソッド呼び出しとメソッド値は、`Call.ReceiverAddressable` に式のアドレス可能性を保持し、`nil` は情報不足を表す。
+receiver 型の method set に対象がなければ、アドレス可能と判明した式だけポインタ型の method set も調べる。
+method set の探索では型エイリアスの連鎖を同じ埋め込み深さで展開し、深い位置の同名フィールドによって浅いメソッドを隠さない。
+map・slice・配列の要素型と、配列の式・struct フィールドのアドレス可能性は source 変換時に判明している範囲で扱う。
+別ファイルのフィールド型は `ReceiverRef` を解決し、式のアドレス可能性を確定できなければ `unknown` にする。
+標準ライブラリの型定義がない場合は、既知のメソッド宣言の receiver と別名を展開した型を照合する。
+非互換でも解決できた関係は残すため、共通の宣言探索では値・ポインタの差だけを理由に排除しない。
+明確な不一致は `Issue{Kind, Message}` とともに `incompatible`、型情報が足りない場合は `unknown` にする。
+`TraversalPolicy` は非互換辺を越えるかどうかを切り替える。
+CLI の初期設定では非互換 caller を残してその先を停止し、`unknown` は継続する。
+call site ごとの判定後、同じ caller/callee・resolution・compatibility・issues の辺のみ表示をまとめる。
+異なる判定をまとめて非互換を優先してはならない。
+cycle と max depth は graph 構築時に処理する。
 
 ## テストと同期
 
@@ -122,6 +136,7 @@ target parse、module 系列、symbol set、build context、locator、source mod
 - `external_method_test.go`: receiver 別の外部宣言、メソッド式、target context、external 終端と未解決時の継続。
 
 - `method_expression_regression_test.go`: 昇格メソッド式、値・ポインタのmethod set、正常経路と非互換境界。
+- `receiver_addressability_test.go`: 通常のメソッド呼び出しとメソッド値のアドレス可能性、map・slice・配列・フィールド・埋め込み、エイリアス展開時の深さと競合、非互換時の停止と情報不足時の継続。
 - `external_cache_test.go`: 外部宣言のparse失敗を同一実行内で再解析しないこととunknown理由の一貫性。
 - `package_name_regression_test.go`: 標準ライブラリの宣言package名、明示alias、workspace名の優先順位と対象build context。
 - `channel_regression_test.go`: channelの方向、定義型とalias、入れ子channelを含む要素型の同一性、互換経路の継続と非互換境界。

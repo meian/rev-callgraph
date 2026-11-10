@@ -129,6 +129,8 @@ type Signature struct {
 	Variadic        bool
 }
 type Call struct {
+	// ReceiverAddressable は receiver 式のアドレス可能性を保持し、nil は情報不足を表す。
+	ReceiverAddressable             *bool
 	ReceiverRef                     *TypeRef
 	MethodExpression                bool
 	Caller, Package, Name, Receiver string

@@ -36,6 +36,14 @@ symbol set は `runtime`（既定）と `test` です。`runtime` は `*_test.go
 
 cgo は `import "C"` に対応し、preamble や source と同じディレクトリにある直接 include された header の単純な C 宣言から名前と引数型を読める範囲で `external` と互換性を判定します。複雑な macro、C の全構文や header の依存連鎖を網羅するものではなく、情報を取得できなければ `unknown` です。標準ライブラリも指定した build context で関数・receiver 付きメソッドの宣言を探し、参照できた場合は `external` として終端にします。外部宣言を解析できない場合は `unknown` / `definition-unavailable` として探索を継続し、同一実行内で失敗した宣言を繰り返し解析しません。同名の関数と別の型のメソッドを区別し、メソッド式では式に書かれた receiver 型を第一引数の型として扱い、その型の method set に対象メソッドが含まれるかを別途検査します。値 receiver のメソッドは `T.M` と `(*T).M` の双方で利用できますが、ポインタ receiver のみのメソッドを `T.M` として利用する式は非互換です。
 
+通常のメソッド呼び出しでは、receiver 型の method set と式のアドレス可能性を検査します。
+`func (*T) M()` のみがある場合、`T{}.M()`、`T` を返す関数の `makeT().M()`、`map[K]T` の `m[k].M()` は非互換です。
+アドレス可能な変数の `t.M()`、slice 要素の `s[i].M()`、ポインタの `(&T{}).M()` は互換です。
+埋め込みポインタ経由で値型の method set に含まれるメソッドも利用できます。
+埋め込まれた型エイリアスやその連鎖は、参照先の型と同じ埋め込み深さで扱います。
+解決できた関係は非互換でも残し、理由を `receiver-addressability` として記録します。
+判定に必要な式のアドレス可能性や method set の情報が不足する場合は `unknown` とします。
+
 逆探索は `compatible` と `unknown` の辺では継続します。`incompatible` の caller 自身は結果へ残し、その caller より上位では停止します。`external` は終端です。同一 caller から同一 callee への呼び出しでも、解決・互換性・非互換理由が異なる場合は別の辺・木の枝として残します。そのため一部の call site が非互換でも、別の互換な call site を通る上位探索は継続します。判定が同じ呼び出しは表示をまとめます。cycle は表示して再帰を止めます。`--max-depth` が正の値なら起点を深さ 0 として探索を制限し、`0` 以下なら深さ制限はありません。
 
 import に明示された alias を優先し、省略時はワークスペースで収集した package 宣言名、または対象 build context で取得した標準ライブラリの package 宣言名を使います。例えば `math/rand/v2` は `rand` として認識します。
@@ -50,7 +58,6 @@ channel 型は送信専用・受信専用・双方向を区別します。双方
 
 - `nil` リテラルの引数は型情報を保持できず `unknown` になる場合があります。名前付き型・interfaceを含む代入判定と併せて対応予定です（[#63](https://github.com/meian/rev-callgraph/issues/63)）。
 - 別ファイルで宣言されたchannel型からの受信値は、要素型を確定できず `unknown` になる場合があります。受信元の型定義を遅延取得する改善で追跡します（[#64](https://github.com/meian/rev-callgraph/issues/64)）。どちらも `unknown` の辺からの探索は継続します。
-- 通常のメソッド呼び出しでは receiver 式のアドレス可能性をまだ判定していません。ポインタ receiver 専用メソッドへの `T{}.M()` など、成立しない呼び出しを `compatible` として上位へ探索する場合があります（[#60](https://github.com/meian/rev-callgraph/issues/60)）。メソッド式の判定とは別の制限です。
 - 埋め込み要素を持つ interface への代入互換性は、適合を確定できる場合でも `unknown` になることがあります。`unknown` の辺からの探索は継続します（[#61](https://github.com/meian/rev-callgraph/issues/61)）。
 
 ## 出力
