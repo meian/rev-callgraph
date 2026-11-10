@@ -39,7 +39,7 @@
 `cmd` は入力・flag の検証、`analysis.Options` の構築、`output.Write` の呼び出しだけを担当する。主要な処理は `analysis.Analyze(ctx, target, options)` で CLI なしに実行できる。
 
 ```text
-CLI -> Discover (module 発見 -> source 列挙と package 構築)
+CLI -> Discover (module 発見 -> module ごとの source 列挙 -> package 構築)
     -> NewLocator (file の token index)
     -> target 定義探索・曖昧性検査 -> callersFor (候補 file の AnalyzeSource)
     -> resolve -> compatibility -> reverse traversal
@@ -52,7 +52,18 @@ CLI -> Discover (module 発見 -> source 列挙と package 構築)
 
 ### 状態と所有者
 
-1 回の `AnalyzeWithPolicy` は、指定された build context と symbol set に対して新しい `Workspace`、`Locator`、`engine` を作る。異なる解析条件の間で cache は共有しない。`discoverModules` は `go.mod` を発見し module の系列と nested module の所有境界を確定する。`discoverSources` は対象条件に合う file を列挙し、package 宣言と import header を読み、`Workspace.Packages` を作る。package の file 所属は path・所有 module・directory・external test の区別で管理する。通常 file と internal test file は同じ package、external test file は別 package に属する。`Package.ID` と各 `Source.PackageID` は、この区別を含む一回の解析内だけの identity である。`bar` の external test と通常の `bar_test` directory はどちらも従来の symbol path `module/bar_test` を持つが、異なる `Package.ID` に属するため `Sources` が混在しない。同名の `main` package でも import path は directory ごとに異なる。
+1 回の `AnalyzeWithPolicy` は、指定された build context と symbol set に対して新しい `Workspace`、`Locator`、`engine` を作る。
+異なる解析条件の間で cache は共有しない。
+`discoverModules` は Go source を読まず、`go.mod` を発見して module の系列と nested module の所有境界を確定する。
+`discoverSources` は一つの module 内の対象 file を列挙し、package 宣言と import header を読む。
+nested module の directory ではそのサブツリーを除外し、各 module 自身の探索に委ねる。
+全 module の列挙後、`buildPackages` が `Workspace.Packages` と import 対応を組み立てる。
+現段階では全 module の source を読むため、総読み込み量の削減や依存関係による遅延読み込みは行わない。
+package の file 所属は path・所有 module・directory・external test の区別で管理する。
+通常 file と internal test file は同じ package、external test file は別 package に属する。
+`Package.ID` と各 `Source.PackageID` は、この区別を含む一回の解析内だけの identity である。
+`bar` の external test と通常の `bar_test` directory はどちらも従来の symbol path `module/bar_test` を持つが、異なる `Package.ID` に属するため `Sources` が混在しない。
+同名の `main` package でも import path は directory ごとに異なる。
 
 公開 `AnalyzeSource` の関数・型 ID と、CLI/API のターゲット指定は従来の package path を使う。
 `Function.PackageID` と `Type.PackageID` は source の解析用 identity を保持する。
@@ -81,7 +92,12 @@ caller 計算結果は同じ engine の固定された候補集合に対して�
 
 定義が見つからない場合の package 判定は、同じ path のうち caller の所有 module を優先し、`unknown/missing-symbol` を返す。caller の module に一致する package がない場合は、同じ path の候補から互換系列の module を探し、1 つでもあれば `unknown/missing-symbol` を返す。候補があり、どれも非互換系列だった場合だけ `external/different-module-series` とする。
 
-`Discover` は `go.mod` を収集し、nested module 境界を確定してから、symbol set と build context に合う Go source を列挙する。module path の major suffix を優先し、suffix がなければ workspace の require major から source module の系列を推定する。一意でない系列は空値のままとする。`replace` は旧 version・新 path・新 version を保持し、現在の require に適用できるものだけを解決と系列推定に利用する。解析時には major の完全一致を要求するが minor・patch は要求しない。`v0` と `v1` は分離する。
+`Discover` は `go.mod` を収集し、nested module 境界を確定してから、各 module 内で symbol set と build context に合う Go source を列挙する。
+module path の major suffix を優先し、suffix がなければ workspace の require major から source module の系列を推定する。
+一意でない系列は空値のままとする。
+`replace` は旧 version・新 path・新 version を保持し、現在の require に適用できるものだけを解決と系列推定に利用する。
+解析時には major の完全一致を要求するが minor・patch は要求しない。
+`v0` と `v1` は分離する。
 
 `NewLocator` は対象 file の token を一度走査して、定義名と識別子名から候補 file の index を作る。定義索引は `Source.PackageID` ごとに分け、`Definitions(packagePath, name)` は同じ公開 import path に属する通常 package の候補だけを集約して返す。
 外部テストの定義は identity ごとの索引に保持し、その package 内からの検索で再利用する。`Callers(packagePath, name)` は候補を返すだけで、呼び出しと確定しない。`Callers` は見落としを防ぐため package を越えて広めに候補を返す。`AnalyzeSource` は要求された file だけを AST 解析し、独自モデルへ変換する。関数値とメソッド式は別 file の定義でも symbol 名をモデルに残す。`callersFor` は起点の symbol 名と無関係な call を解決前に除外し、同じ caller が他の関数を多数呼んでいても不要な定義 source を詳細解析しない。定義、source model、外部宣言、symbol ごとの caller と互換性判定の結果は `engine` の実行単位で cache する。`Statistics` の `DiscoveredSources`、`AnalyzedSources`、`LocatorLookups`、`ResolutionLookups`、`CacheHits` でこの動作を検証できる。
@@ -129,6 +145,7 @@ target parse、module 系列、symbol set、build context、locator、source mod
 - `array_identity_test.go`: 配列要素の alias・定義型の区別、pointer・ネスト配列。
 - `interface_regression_test.go`: 埋め込み method、pointer method set、遮蔽、曖昧さ。
 - `discovery_test.go`: version 限定 replace の適用条件・優先順位・置換先系列。
+- `module_discovery_test.go`: 多段の nested module、親 module に source がない構成、root に module がない構成での file 所属・重複排除、対象外 directory の除外。
 - `engine_review_test.go`: 混在する call site の経路保持、無関係な300関数の詳細解析抑制。
 - `e2e_test.go`: 互換・非互換の両方を JSON に残し、正常経路の上位 caller を保持。
 
