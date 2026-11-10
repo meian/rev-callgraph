@@ -7,12 +7,48 @@ func TestArrayElementIdentity(t *testing.T) {
 		name, declarations, parameter, argument string
 		want                                    CompatibilityStatus
 	}{
-		{"predeclared-alias", "", "[2]uint8", "[2]byte{}", Compatible},
-		{"named-alias", "type A = int; type B = A", "[2]B", "[2]A{}", Compatible},
-		{"distinct-named-types", "type A int; type B int", "[2]B", "[2]A{}", Incompatible},
-		{"pointer-alias", "type A = int", "[2]*int", "[2]*A{}", Compatible},
-		{"nested-array-alias", "type A = int", "[2][3]int", "[2][3]A{}", Compatible},
-		{"nested-array-different-length", "type A = int", "[2][3]int", "[2][4]A{}", Incompatible},
+		{
+			name:         "predeclared-alias",
+			declarations: "",
+			parameter:    "[2]uint8",
+			argument:     "[2]byte{}",
+			want:         Compatible,
+		},
+		{
+			name:         "named-alias",
+			declarations: "type A = int; type B = A",
+			parameter:    "[2]B",
+			argument:     "[2]A{}",
+			want:         Compatible,
+		},
+		{
+			name:         "distinct-named-types",
+			declarations: "type A int; type B int",
+			parameter:    "[2]B",
+			argument:     "[2]A{}",
+			want:         Incompatible,
+		},
+		{
+			name:         "pointer-alias",
+			declarations: "type A = int",
+			parameter:    "[2]*int",
+			argument:     "[2]*A{}",
+			want:         Compatible,
+		},
+		{
+			name:         "nested-array-alias",
+			declarations: "type A = int",
+			parameter:    "[2][3]int",
+			argument:     "[2][3]A{}",
+			want:         Compatible,
+		},
+		{
+			name:         "nested-array-different-length",
+			declarations: "type A = int",
+			parameter:    "[2][3]int",
+			argument:     "[2][4]A{}",
+			want:         Incompatible,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

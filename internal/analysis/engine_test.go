@@ -115,14 +115,62 @@ func TestCompatibilityChecks(t *testing.T) {
 		status                   CompatibilityStatus
 		kind                     string
 	}{
-		{"argument-added", "func Target(x int){}", "Target()", Incompatible, "argument-count"},
-		{"argument-removed", "func Target(){}", "Target(1)", Incompatible, "argument-count"},
-		{"argument-type", "func Target(x int){}", "Target(\"x\")", Incompatible, "argument-type"},
-		{"variadic-compatible", "func Target(x ...int){}", "Target(1,2)", Compatible, ""},
-		{"result-added", "func Target()(int,error){return 0,nil}", "x := Target(); _ = x", Incompatible, "result-count"},
-		{"result-removed", "func Target(){}", "x := Target(); _ = x", Incompatible, "result-count"},
-		{"discard-result-valid", "func Target()int{return 0}", "Target()", Compatible, ""},
-		{"unknown-type", "func Target(x int){}", "Target(undefined)", CompatibilityUnknown, ""},
+		{
+			name:       "argument-added",
+			definition: "func Target(x int){}",
+			caller:     "Target()",
+			status:     Incompatible,
+			kind:       "argument-count",
+		},
+		{
+			name:       "argument-removed",
+			definition: "func Target(){}",
+			caller:     "Target(1)",
+			status:     Incompatible,
+			kind:       "argument-count",
+		},
+		{
+			name:       "argument-type",
+			definition: "func Target(x int){}",
+			caller:     "Target(\"x\")",
+			status:     Incompatible,
+			kind:       "argument-type",
+		},
+		{
+			name:       "variadic-compatible",
+			definition: "func Target(x ...int){}",
+			caller:     "Target(1,2)",
+			status:     Compatible,
+			kind:       "",
+		},
+		{
+			name:       "result-added",
+			definition: "func Target()(int,error){return 0,nil}",
+			caller:     "x := Target(); _ = x",
+			status:     Incompatible,
+			kind:       "result-count",
+		},
+		{
+			name:       "result-removed",
+			definition: "func Target(){}",
+			caller:     "x := Target(); _ = x",
+			status:     Incompatible,
+			kind:       "result-count",
+		},
+		{
+			name:       "discard-result-valid",
+			definition: "func Target()int{return 0}",
+			caller:     "Target()",
+			status:     Compatible,
+			kind:       "",
+		},
+		{
+			name:       "unknown-type",
+			definition: "func Target(x int){}",
+			caller:     "Target(undefined)",
+			status:     CompatibilityUnknown,
+			kind:       "",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

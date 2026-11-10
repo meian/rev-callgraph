@@ -259,8 +259,16 @@ func TestCollidingTypeDiagnostics(t *testing.T) {
 	for _, test := range []struct {
 		target, caller, kind string
 	}{
-		{"Accept", "Caller", "argument-type"},
-		{"Return", "BadReturn", "result-type"},
+		{
+			target: "Accept",
+			caller: "Caller",
+			kind:   "argument-type",
+		},
+		{
+			target: "Return",
+			caller: "BadReturn",
+			kind:   "result-type",
+		},
 	} {
 		result, err := Analyze(context.Background(), "example.com/m/foo_test."+test.target, Options{
 			Dir:       dir,

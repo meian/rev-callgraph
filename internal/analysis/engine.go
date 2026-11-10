@@ -574,6 +574,11 @@ func edgeOutcomeKey(edge Edge) string {
 		Callee        string
 		Resolution    Resolution
 		Compatibility Compatibility
-	}{edge.Caller, edge.Callee, edge.Resolution, edge.Compatibility})
+	}{
+		Caller:        edge.Caller,
+		Callee:        edge.Callee,
+		Resolution:    edge.Resolution,
+		Compatibility: edge.Compatibility,
+	})
 	return string(data)
 }

@@ -325,10 +325,26 @@ func TestVersionedReplaceCallResolution(t *testing.T) {
 	for _, test := range []struct {
 		name, replace, target string
 	}{
-		{"nonmatching version", "replace example.com/original v1.2.0 => ../fork\n", "example.com/original.Target"},
-		{"matching version", "replace example.com/original v1.3.0 => ../fork\n", "example.com/fork.Target"},
-		{"specific over all", "replace (\nexample.com/original => ../original\nexample.com/original v1.3.0 => ../fork\n)\n", "example.com/fork.Target"},
-		{"all when specific differs", "replace (\nexample.com/original => ../original\nexample.com/original v1.2.0 => ../fork\n)\n", "example.com/original.Target"},
+		{
+			name:    "nonmatching version",
+			replace: "replace example.com/original v1.2.0 => ../fork\n",
+			target:  "example.com/original.Target",
+		},
+		{
+			name:    "matching version",
+			replace: "replace example.com/original v1.3.0 => ../fork\n",
+			target:  "example.com/fork.Target",
+		},
+		{
+			name:    "specific over all",
+			replace: "replace (\nexample.com/original => ../original\nexample.com/original v1.3.0 => ../fork\n)\n",
+			target:  "example.com/fork.Target",
+		},
+		{
+			name:    "all when specific differs",
+			replace: "replace (\nexample.com/original => ../original\nexample.com/original v1.2.0 => ../fork\n)\n",
+			target:  "example.com/original.Target",
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			files := make(map[string]string, len(base)+1)

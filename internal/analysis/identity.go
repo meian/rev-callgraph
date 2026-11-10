@@ -99,7 +99,10 @@ func importPackage(w *Workspace, module int, path string) (Package, bool) {
 	if w.importSelections[module] == nil {
 		w.importSelections[module] = make(map[string]packageSelection)
 	}
-	result := packageSelection{pkg: selected, ok: count == 1}
+	result := packageSelection{
+		pkg: selected,
+		ok:  count == 1,
+	}
 	w.importSelections[module][path] = result
 	return result.pkg, result.ok
 }
