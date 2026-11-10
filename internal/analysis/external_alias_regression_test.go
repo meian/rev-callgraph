@@ -7,11 +7,36 @@ func TestExternalMethodThroughTypeAlias(t *testing.T) {
 		name, alias, call string
 		want              CompatibilityStatus
 	}{
-		{"direct-alias", "type B = strings.Builder", "var b B; b.WriteString(\"x\")", Compatible},
-		{"alias-chain", "type A = strings.Builder; type B = A", "var b B; b.WriteString(\"x\")", Compatible},
-		{"pointer-alias", "type B = *strings.Builder", "var b B; b.WriteString(\"x\")", Compatible},
-		{"pointer-method-expression", "type B = strings.Builder", "var b *B; (*B).WriteString(b, \"x\")", Compatible},
-		{"invalid-value-method-expression", "type B = strings.Builder", "var b B; B.WriteString(b, \"x\")", Incompatible},
+		{
+			"direct-alias",
+			"type B = strings.Builder",
+			"var b B; b.WriteString(\"x\")",
+			Compatible,
+		},
+		{
+			"alias-chain",
+			"type A = strings.Builder; type B = A",
+			"var b B; b.WriteString(\"x\")",
+			Compatible,
+		},
+		{
+			"pointer-alias",
+			"type B = *strings.Builder",
+			"var b B; b.WriteString(\"x\")",
+			Compatible,
+		},
+		{
+			"pointer-method-expression",
+			"type B = strings.Builder",
+			"var b *B; (*B).WriteString(b, \"x\")",
+			Compatible,
+		},
+		{
+			"invalid-value-method-expression",
+			"type B = strings.Builder",
+			"var b B; B.WriteString(b, \"x\")",
+			Incompatible,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			result := runFixture(t, map[string]string{

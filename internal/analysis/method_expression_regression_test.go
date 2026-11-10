@@ -7,15 +7,69 @@ func TestMethodExpressionReceiverCompatibility(t *testing.T) {
 		name, declarations, call, target string
 		want                             CompatibilityStatus
 	}{
-		{"value-receiver", "type T struct{}; func (T) Run(){}", "func Caller(){var v T; T.Run(v)}", "example.com/p.T#Run", Compatible},
-		{"pointer-receiver", "type T struct{}; func (*T) Run(){}", "func Caller(){var v *T; (*T).Run(v)}", "example.com/p.T#Run", Compatible},
-		{"pointer-expression-value-method", "type T struct{}; func (T) Run(){}", "func Caller(){var v *T; (*T).Run(v)}", "example.com/p.T#Run", Compatible},
-		{"value-expression-pointer-method", "type T struct{}; func (*T) Run(){}", "func Caller(){var v T; T.Run(v)}", "example.com/p.T#Run", Incompatible},
-		{"value-expression-pointer-method-with-pointer-argument", "type T struct{}; func (*T) Run(){}", "func Caller(){var v T; T.Run(&v)}", "example.com/p.T#Run", Incompatible},
-		{"promoted-value-method", "type Inner struct{}; func (Inner) Run(){}; type Outer struct{Inner}", "func Caller(){var v Outer; Outer.Run(v)}", "example.com/p.Inner#Run", Compatible},
-		{"promoted-pointer-method", "type Inner struct{}; func (*Inner) Run(){}; type Outer struct{Inner}", "func Caller(){var v *Outer; (*Outer).Run(v)}", "example.com/p.Inner#Run", Compatible},
-		{"promoted-pointer-field-method", "type Inner struct{}; func (*Inner) Run(){}; type Outer struct{*Inner}", "func Caller(){var v Outer; Outer.Run(v)}", "example.com/p.Inner#Run", Compatible},
-		{"invalid-promoted-pointer-method", "type Inner struct{}; func (*Inner) Run(){}; type Outer struct{Inner}", "func Caller(){var v Outer; Outer.Run(v)}", "example.com/p.Inner#Run", Incompatible},
+		{
+			"value-receiver",
+			"type T struct{}; func (T) Run(){}",
+			"func Caller(){var v T; T.Run(v)}",
+			"example.com/p.T#Run",
+			Compatible,
+		},
+		{
+			"pointer-receiver",
+			"type T struct{}; func (*T) Run(){}",
+			"func Caller(){var v *T; (*T).Run(v)}",
+			"example.com/p.T#Run",
+			Compatible,
+		},
+		{
+			"pointer-expression-value-method",
+			"type T struct{}; func (T) Run(){}",
+			"func Caller(){var v *T; (*T).Run(v)}",
+			"example.com/p.T#Run",
+			Compatible,
+		},
+		{
+			"value-expression-pointer-method",
+			"type T struct{}; func (*T) Run(){}",
+			"func Caller(){var v T; T.Run(v)}",
+			"example.com/p.T#Run",
+			Incompatible,
+		},
+		{
+			"value-expression-pointer-method-with-pointer-argument",
+			"type T struct{}; func (*T) Run(){}",
+			"func Caller(){var v T; T.Run(&v)}",
+			"example.com/p.T#Run",
+			Incompatible,
+		},
+		{
+			"promoted-value-method",
+			"type Inner struct{}; func (Inner) Run(){}; type Outer struct{Inner}",
+			"func Caller(){var v Outer; Outer.Run(v)}",
+			"example.com/p.Inner#Run",
+			Compatible,
+		},
+		{
+			"promoted-pointer-method",
+			"type Inner struct{}; func (*Inner) Run(){}; type Outer struct{Inner}",
+			"func Caller(){var v *Outer; (*Outer).Run(v)}",
+			"example.com/p.Inner#Run",
+			Compatible,
+		},
+		{
+			"promoted-pointer-field-method",
+			"type Inner struct{}; func (*Inner) Run(){}; type Outer struct{*Inner}",
+			"func Caller(){var v Outer; Outer.Run(v)}",
+			"example.com/p.Inner#Run",
+			Compatible,
+		},
+		{
+			"invalid-promoted-pointer-method",
+			"type Inner struct{}; func (*Inner) Run(){}; type Outer struct{Inner}",
+			"func Caller(){var v Outer; Outer.Run(v)}",
+			"example.com/p.Inner#Run",
+			Incompatible,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			result := runFixture(t, map[string]string{
@@ -51,9 +105,24 @@ func TestExternalMethodExpressionReceiverCompatibility(t *testing.T) {
 		name, source, target string
 		want                 CompatibilityStatus
 	}{
-		{"pointer-expression-value-method", "import \"time\"\nfunc Caller(v *time.Time){(*time.Time).String(v)}", "time.Time#String", Compatible},
-		{"value-expression-pointer-method", "import \"strings\"\nfunc Caller(v strings.Builder){strings.Builder.WriteString(v, \"x\")}", "strings.Builder#WriteString", Incompatible},
-		{"ordinary-addressable-method-call", "import \"strings\"\nfunc Caller(){var v strings.Builder; v.WriteString(\"x\")}", "strings.Builder#WriteString", Compatible},
+		{
+			"pointer-expression-value-method",
+			"import \"time\"\nfunc Caller(v *time.Time){(*time.Time).String(v)}",
+			"time.Time#String",
+			Compatible,
+		},
+		{
+			"value-expression-pointer-method",
+			"import \"strings\"\nfunc Caller(v strings.Builder){strings.Builder.WriteString(v, \"x\")}",
+			"strings.Builder#WriteString",
+			Incompatible,
+		},
+		{
+			"ordinary-addressable-method-call",
+			"import \"strings\"\nfunc Caller(){var v strings.Builder; v.WriteString(\"x\")}",
+			"strings.Builder#WriteString",
+			Compatible,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			result := runFixture(t, map[string]string{

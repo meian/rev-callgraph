@@ -71,11 +71,36 @@ func TestArrayLengthCompatibility(t *testing.T) {
 		name, length, argument string
 		want                   CompatibilityStatus
 	}{
-		{"mismatch", "3", "[2]int{}", Incompatible},
-		{"match", "3", "[3]int{}", Compatible},
-		{"constant", "N", "[2]int{}", Incompatible},
-		{"constant-expression", "N + 1", "[2]int{}", Incompatible},
-		{"unknown", "external.N", "[2]int{}", CompatibilityUnknown},
+		{
+			"mismatch",
+			"3",
+			"[2]int{}",
+			Incompatible,
+		},
+		{
+			"match",
+			"3",
+			"[3]int{}",
+			Compatible,
+		},
+		{
+			"constant",
+			"N",
+			"[2]int{}",
+			Incompatible,
+		},
+		{
+			"constant-expression",
+			"N + 1",
+			"[2]int{}",
+			Incompatible,
+		},
+		{
+			"unknown",
+			"external.N",
+			"[2]int{}",
+			CompatibilityUnknown,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			result := runFixture(t, map[string]string{

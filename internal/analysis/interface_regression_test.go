@@ -7,13 +7,48 @@ func TestPromotedMethodsSatisfyInterface(t *testing.T) {
 		name, types, argument string
 		want                  CompatibilityStatus
 	}{
-		{"embedded-value", "type Inner struct{}; func (Inner) Run(){}; type Outer struct{ Inner }", "Outer{}", Compatible},
-		{"embedded-pointer", "type Inner struct{}; func (*Inner) Run(){}; type Outer struct{ *Inner }", "Outer{}", Compatible},
-		{"pointer-outer", "type Inner struct{}; func (*Inner) Run(){}; type Outer struct{ Inner }", "&Outer{}", Compatible},
-		{"value-outer", "type Inner struct{}; func (*Inner) Run(){}; type Outer struct{ Inner }", "Outer{}", Incompatible},
-		{"shadowed-field", "type Inner struct{}; func (Inner) Run(){}; type Outer struct{ Inner; Run int }", "Outer{}", Incompatible},
-		{"ambiguous-promotion", "type A struct{}; func (A) Run(){}; type B struct{}; func (B) Run(){}; type Outer struct{ A; B }", "Outer{}", Incompatible},
-		{"direct-method-shadows", "type Inner struct{}; func (Inner) Run(int){}; type Outer struct{ Inner }; func (Outer) Run(){}", "Outer{}", Compatible},
+		{
+			"embedded-value",
+			"type Inner struct{}; func (Inner) Run(){}; type Outer struct{ Inner }",
+			"Outer{}",
+			Compatible,
+		},
+		{
+			"embedded-pointer",
+			"type Inner struct{}; func (*Inner) Run(){}; type Outer struct{ *Inner }",
+			"Outer{}",
+			Compatible,
+		},
+		{
+			"pointer-outer",
+			"type Inner struct{}; func (*Inner) Run(){}; type Outer struct{ Inner }",
+			"&Outer{}",
+			Compatible,
+		},
+		{
+			"value-outer",
+			"type Inner struct{}; func (*Inner) Run(){}; type Outer struct{ Inner }",
+			"Outer{}",
+			Incompatible,
+		},
+		{
+			"shadowed-field",
+			"type Inner struct{}; func (Inner) Run(){}; type Outer struct{ Inner; Run int }",
+			"Outer{}",
+			Incompatible,
+		},
+		{
+			"ambiguous-promotion",
+			"type A struct{}; func (A) Run(){}; type B struct{}; func (B) Run(){}; type Outer struct{ A; B }",
+			"Outer{}",
+			Incompatible,
+		},
+		{
+			"direct-method-shadows",
+			"type Inner struct{}; func (Inner) Run(int){}; type Outer struct{ Inner }; func (Outer) Run(){}",
+			"Outer{}",
+			Compatible,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

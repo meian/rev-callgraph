@@ -7,11 +7,36 @@ func TestExternalMethodDeclarationLookup(t *testing.T) {
 		pkg, name, receiver string
 		params              int
 	}{
-		{"strings", "WriteString", "strings.Builder", 1},
-		{"strings", "WriteString", "*strings.Builder", 1},
-		{"os", "Chmod", "", 2},
-		{"os", "Chmod", "os.File", 1},
-		{"os", "Chmod", "os.Root", 2},
+		{
+			"strings",
+			"WriteString",
+			"strings.Builder",
+			1,
+		},
+		{
+			"strings",
+			"WriteString",
+			"*strings.Builder",
+			1,
+		},
+		{
+			"os",
+			"Chmod",
+			"",
+			2,
+		},
+		{
+			"os",
+			"Chmod",
+			"os.File",
+			1,
+		},
+		{
+			"os",
+			"Chmod",
+			"os.Root",
+			2,
+		},
 	} {
 		t.Run(tc.pkg+tc.receiver+tc.name, func(t *testing.T) {
 			f, err := AnalyzeExternalFunction(tc.pkg, tc.name, tc.receiver, BuildContext{})

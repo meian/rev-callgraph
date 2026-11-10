@@ -115,14 +115,62 @@ func TestCompatibilityChecks(t *testing.T) {
 		status                   CompatibilityStatus
 		kind                     string
 	}{
-		{"argument-added", "func Target(x int){}", "Target()", Incompatible, "argument-count"},
-		{"argument-removed", "func Target(){}", "Target(1)", Incompatible, "argument-count"},
-		{"argument-type", "func Target(x int){}", "Target(\"x\")", Incompatible, "argument-type"},
-		{"variadic-compatible", "func Target(x ...int){}", "Target(1,2)", Compatible, ""},
-		{"result-added", "func Target()(int,error){return 0,nil}", "x := Target(); _ = x", Incompatible, "result-count"},
-		{"result-removed", "func Target(){}", "x := Target(); _ = x", Incompatible, "result-count"},
-		{"discard-result-valid", "func Target()int{return 0}", "Target()", Compatible, ""},
-		{"unknown-type", "func Target(x int){}", "Target(undefined)", CompatibilityUnknown, ""},
+		{
+			"argument-added",
+			"func Target(x int){}",
+			"Target()",
+			Incompatible,
+			"argument-count",
+		},
+		{
+			"argument-removed",
+			"func Target(){}",
+			"Target(1)",
+			Incompatible,
+			"argument-count",
+		},
+		{
+			"argument-type",
+			"func Target(x int){}",
+			"Target(\"x\")",
+			Incompatible,
+			"argument-type",
+		},
+		{
+			"variadic-compatible",
+			"func Target(x ...int){}",
+			"Target(1,2)",
+			Compatible,
+			"",
+		},
+		{
+			"result-added",
+			"func Target()(int,error){return 0,nil}",
+			"x := Target(); _ = x",
+			Incompatible,
+			"result-count",
+		},
+		{
+			"result-removed",
+			"func Target(){}",
+			"x := Target(); _ = x",
+			Incompatible,
+			"result-count",
+		},
+		{
+			"discard-result-valid",
+			"func Target()int{return 0}",
+			"Target()",
+			Compatible,
+			"",
+		},
+		{
+			"unknown-type",
+			"func Target(x int){}",
+			"Target(undefined)",
+			CompatibilityUnknown,
+			"",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
