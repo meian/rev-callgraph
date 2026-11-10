@@ -386,6 +386,7 @@ func (e *engine) canonicalArrayElement(name string, seen map[string]bool) (strin
 
 // interfaceMethod は名前付き型の Go メソッド集合からメソッドを探す。
 // 埋め込みの各深さでは、同名のフィールドとメソッドがさらに深い位置のメソッドを隠す。
+// 型エイリアスは同じ深さで展開する。
 // 同じ深さに候補が複数ある場合は曖昧と判定する。
 func (e *engine) interfaceMethod(from, name string) (Signature, bool, bool) {
 	type candidate struct {
@@ -403,7 +404,8 @@ func (e *engine) interfaceMethod(from, name string) (Signature, bool, bool) {
 		var matches []Signature
 		declarations := 0
 		unknown := false
-		for _, item := range queue {
+		for pos := 0; pos < len(queue); pos++ {
+			item := queue[pos]
 			if item.name == "" || item.seen[item.name] {
 				continue
 			}
@@ -434,7 +436,7 @@ func (e *engine) interfaceMethod(from, name string) (Signature, bool, bool) {
 			}
 			if typ.Alias && typ.Underlying != "" {
 				underlying := typ.Underlying
-				next = append(next, candidate{
+				queue = append(queue, candidate{
 					name:    receiverID(underlying),
 					pointer: item.pointer || strings.HasPrefix(underlying, "*"),
 					seen:    seen,

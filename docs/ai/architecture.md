@@ -97,6 +97,7 @@ import 名は明示 alias、import path で選んだ通常 package の宣言名�
 メソッド式の第一引数には `call.Receiver` を使い、その型の method set を検証する。
 通常のメソッド呼び出しとメソッド値は、`Call.ReceiverAddressable` に式のアドレス可能性を保持し、`nil` は情報不足を表す。
 receiver 型の method set に対象がなければ、アドレス可能と判明した式だけポインタ型の method set も調べる。
+method set の探索では型エイリアスの連鎖を同じ埋め込み深さで展開し、深い位置の同名フィールドによって浅いメソッドを隠さない。
 map・slice・配列の要素型と、配列の式・struct フィールドのアドレス可能性は source 変換時に判明している範囲で扱う。
 別ファイルのフィールド型は `ReceiverRef` を解決し、式のアドレス可能性を確定できなければ `unknown` にする。
 標準ライブラリの型定義がない場合は、既知のメソッド宣言の receiver と別名を展開した型を照合する。
@@ -135,7 +136,7 @@ target parse、module 系列、symbol set、build context、locator、source mod
 - `external_method_test.go`: receiver 別の外部宣言、メソッド式、target context、external 終端と未解決時の継続。
 
 - `method_expression_regression_test.go`: 昇格メソッド式、値・ポインタのmethod set、正常経路と非互換境界。
-- `receiver_addressability_test.go`: 通常のメソッド呼び出しとメソッド値のアドレス可能性、map・slice・配列・フィールド・埋め込み、非互換時の停止と情報不足時の継続。
+- `receiver_addressability_test.go`: 通常のメソッド呼び出しとメソッド値のアドレス可能性、map・slice・配列・フィールド・埋め込み、エイリアス展開時の深さと競合、非互換時の停止と情報不足時の継続。
 - `external_cache_test.go`: 外部宣言のparse失敗を同一実行内で再解析しないこととunknown理由の一貫性。
 - `package_name_regression_test.go`: 標準ライブラリの宣言package名、明示alias、workspace名の優先順位と対象build context。
 - `channel_regression_test.go`: channelの方向、定義型とalias、入れ子channelを含む要素型の同一性、互換経路の継続と非互換境界。

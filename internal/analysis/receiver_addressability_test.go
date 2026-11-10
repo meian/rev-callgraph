@@ -235,6 +235,99 @@ func TestMethodCallReceiverAddressability(t *testing.T) {
 	}
 }
 
+// TestEmbeddedAliasMethodDepth は別名の連鎖で埋め込みの優先順位が変わらないことを確認する。
+func TestEmbeddedAliasMethodDepth(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		receiver string
+		aliases  string
+		fields   string
+		want     analysis.CompatibilityStatus
+	}{
+		{
+			name:     "alias-before-deeper-field",
+			receiver: "T",
+			aliases:  "type Alias = T",
+			fields:   "Alias; Mid",
+			want:     analysis.Compatible,
+		},
+		{
+			name:     "alias-chain-before-deeper-field",
+			receiver: "T",
+			aliases:  "type A = T; type Alias = A",
+			fields:   "Alias; Mid",
+			want:     analysis.Compatible,
+		},
+		{
+			name:     "pointer-alias-before-deeper-field",
+			receiver: "*T",
+			aliases:  "type Alias = *T",
+			fields:   "Alias; Mid",
+			want:     analysis.Compatible,
+		},
+		{
+			name:     "alias-conflicts-with-same-depth-field",
+			receiver: "T",
+			aliases:  "type Alias = T",
+			fields:   "Alias; Deep",
+			want:     analysis.Incompatible,
+		},
+		{
+			name:     "alias-chain-conflicts-with-same-depth-field",
+			receiver: "T",
+			aliases:  "type A = T; type Alias = A",
+			fields:   "Alias; Deep",
+			want:     analysis.Incompatible,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, mode := range []struct {
+				name   string
+				body   string
+				target string
+			}{
+				{
+					name:   "method-call",
+					body:   "Outer{}.Run()",
+					target: "example.com/p.T#Run",
+				},
+				{
+					name:   "method-expression",
+					body:   "Outer.Run(Outer{})",
+					target: "example.com/p.T#Run",
+				},
+				{
+					name:   "interface-argument",
+					body:   "Target(Outer{})",
+					target: "example.com/p.Target",
+				},
+			} {
+				t.Run(mode.name, func(t *testing.T) {
+					result := analyzeReceiverFixture(t, map[string]string{
+						"p.go": "package p\ntype T struct{}; func (" + tc.receiver + ") Run(){}\n" + tc.aliases +
+							"\ntype Deep struct{Run int}; type Mid struct{Deep}; type Outer struct{" + tc.fields + "}\n" +
+							"type I interface{Run()}; func Target(I){}\nfunc Caller(){" + mode.body + "}\nfunc Above(){Caller()}\n",
+					}, mode.target)
+					if len(result.Root.Callers) != 1 {
+						t.Fatalf("callers = %+v", result.Root.Callers)
+					}
+					caller := result.Root.Callers[0]
+					if caller.Edge.Resolution.Status != analysis.Resolved || caller.Edge.Compatibility.Status != tc.want {
+						t.Fatalf("edge = %+v, want resolved / %s", caller.Edge, tc.want)
+					}
+					wantUpper := 1
+					if tc.want == analysis.Incompatible {
+						wantUpper = 0
+					}
+					if len(caller.Callers) != wantUpper {
+						t.Errorf("upper callers = %d, want %d", len(caller.Callers), wantUpper)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestMethodCallConstantReceiverAddressability(t *testing.T) {
 	for _, body := range []string{"c.Run()", "const v T = 0; v.Run()"} {
 		t.Run(body, func(t *testing.T) {
