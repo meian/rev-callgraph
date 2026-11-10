@@ -12,14 +12,14 @@ func TestStandardLibraryVersionedImportUsesDeclaredPackageName(t *testing.T) {
 		name, imported, call string
 	}{
 		{
-			"default",
-			`"math/rand/v2"`,
-			"rand.Int()",
+			name:     "default",
+			imported: `"math/rand/v2"`,
+			call:     "rand.Int()",
 		},
 		{
-			"explicit alias",
-			`rng "math/rand/v2"`,
-			"rng.Int()",
+			name:     "explicit alias",
+			imported: `rng "math/rand/v2"`,
+			call:     "rng.Int()",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -80,32 +80,32 @@ func TestImportNamePriorityAndFallback(t *testing.T) {
 		names                  map[string]string
 	}{
 		{
-			"standard declaration",
-			`"math/rand/v2"`,
-			"math/rand/v2",
-			"rand",
-			nil,
+			name:  "standard declaration",
+			spec:  `"math/rand/v2"`,
+			path:  "math/rand/v2",
+			want:  "rand",
+			names: nil,
 		},
 		{
-			"workspace declaration",
-			`"math/rand/v2"`,
-			"math/rand/v2",
-			"workspace",
-			map[string]string{"math/rand/v2": "workspace"},
+			name:  "workspace declaration",
+			spec:  `"math/rand/v2"`,
+			path:  "math/rand/v2",
+			want:  "workspace",
+			names: map[string]string{"math/rand/v2": "workspace"},
 		},
 		{
-			"explicit alias",
-			`alias "math/rand/v2"`,
-			"math/rand/v2",
-			"alias",
-			map[string]string{"math/rand/v2": "workspace"},
+			name:  "explicit alias",
+			spec:  `alias "math/rand/v2"`,
+			path:  "math/rand/v2",
+			want:  "alias",
+			names: map[string]string{"math/rand/v2": "workspace"},
 		},
 		{
-			"unavailable declaration",
-			`"missing/v2"`,
-			"missing/v2",
-			"v2",
-			nil,
+			name:  "unavailable declaration",
+			spec:  `"missing/v2"`,
+			path:  "missing/v2",
+			want:  "v2",
+			names: nil,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

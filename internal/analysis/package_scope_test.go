@@ -260,14 +260,14 @@ func TestCollidingTypeDiagnostics(t *testing.T) {
 		target, caller, kind string
 	}{
 		{
-			"Accept",
-			"Caller",
-			"argument-type",
+			target: "Accept",
+			caller: "Caller",
+			kind:   "argument-type",
 		},
 		{
-			"Return",
-			"BadReturn",
-			"result-type",
+			target: "Return",
+			caller: "BadReturn",
+			kind:   "result-type",
 		},
 	} {
 		result, err := Analyze(context.Background(), "example.com/m/foo_test."+test.target, Options{

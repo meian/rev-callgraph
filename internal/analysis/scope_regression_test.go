@@ -63,20 +63,20 @@ func SelectCase(ch <-chan Local) {
 func TestControlStatementScopesPreserveReverseEdges(t *testing.T) {
 	for _, tc := range []struct{ name, statement string }{
 		{
-			"if-else",
-			"if lib := (Local{}); true { lib.Target() } else { lib.Target() }",
+			name:      "if-else",
+			statement: "if lib := (Local{}); true { lib.Target() } else { lib.Target() }",
 		},
 		{
-			"nested-if",
-			"if lib := (Local{}); true { if lib := (Local{}); true {lib.Target()}; lib.Target() }",
+			name:      "nested-if",
+			statement: "if lib := (Local{}); true { if lib := (Local{}); true {lib.Target()}; lib.Target() }",
 		},
 		{
-			"for",
-			"for lib := (Local{}); false; { lib.Target() }",
+			name:      "for",
+			statement: "for lib := (Local{}); false; { lib.Target() }",
 		},
 		{
-			"switch",
-			"switch lib := (Local{}); {case true: lib.Target()}",
+			name:      "switch",
+			statement: "switch lib := (Local{}); {case true: lib.Target()}",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
