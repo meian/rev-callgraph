@@ -39,6 +39,9 @@ func (e *engine) compatibility(call Call, callee *Function, res Resolution) Comp
 		return c
 	}
 	uncertain := false
+	if call.ReceiverRef != nil {
+		call.Receiver = e.resolveType(*call.ReceiverRef, map[string]bool{}).Name
+	}
 	if call.MethodExpression && callee != nil {
 		// メソッド式の第一引数は、昇格元の宣言型ではなく式のreceiver型で判定する。
 		sig = &Signature{
@@ -46,22 +49,20 @@ func (e *engine) compatibility(call Call, callee *Function, res Resolution) Comp
 			Results:  sig.Results,
 			Variadic: sig.Variadic,
 		}
-		if _, found, known := e.interfaceMethod(call.Receiver, call.Name); known {
-			if !found {
-				issue("method-expression", "method is not in the expression receiver's method set")
-			}
-		} else if res.Status == External && callee.Receiver != "" {
-			// 標準ライブラリの型定義は未読込なので、宣言のreceiverと照合する。
-			declared := callee.Receiver
-			receiver := e.canonicalAliasReceiver(call.Receiver)
-			if receiver != declared &&
-				!(strings.HasPrefix(receiver, "*") &&
-					!strings.HasPrefix(declared, "*") &&
-					receiverID(receiver) == declared) {
-				issue("method-expression", "method is not in the expression receiver's method set")
-			}
-		} else {
+		if found, known := e.methodSetContains(call.Receiver, callee, res); !known {
 			uncertain = true
+		} else if !found {
+			issue("method-expression", "method is not in the expression receiver's method set")
+		}
+	} else if call.Receiver != "" && callee != nil {
+		found, known := e.methodSetContains(call.Receiver, callee, res)
+		if known && !found && call.ReceiverAddressable != nil && *call.ReceiverAddressable && !strings.HasPrefix(call.Receiver, "*") {
+			found, known = e.methodSetContains("*"+call.Receiver, callee, res)
+		}
+		if !known || !found && call.ReceiverAddressable == nil {
+			uncertain = true
+		} else if !found {
+			issue("receiver-addressability", "method requires an addressable receiver or a receiver with the method in its method set")
 		}
 	}
 	n := len(sig.Params)
@@ -122,6 +123,21 @@ func (e *engine) compatibility(call Call, callee *Function, res Resolution) Comp
 	}
 	return c
 }
+
+func (e *engine) methodSetContains(receiver string, callee *Function, res Resolution) (bool, bool) {
+	if _, found, known := e.interfaceMethod(receiver, callee.Name); known {
+		return found, true
+	}
+	if res.Status != External || callee.Receiver == "" {
+		return false, false
+	}
+	// 標準ライブラリの型定義は未読込なので、宣言の receiver と照合する。
+	receiver = e.canonicalAliasReceiver(receiver)
+	declared := callee.Receiver
+	return receiver == declared ||
+		strings.HasPrefix(receiver, "*") && !strings.HasPrefix(declared, "*") && receiverID(receiver) == declared, true
+}
+
 func (e *engine) assignable(from, to string, seen map[string]bool) (bool, bool) {
 	if from == "" || to == "" {
 		return false, false
