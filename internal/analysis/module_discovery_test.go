@@ -11,9 +11,10 @@ import (
 
 func TestDiscoverModuleBoundaries(t *testing.T) {
 	for _, tc := range []struct {
-		name  string
-		files map[string]string
-		want  map[string]string
+		name      string
+		files     map[string]string
+		want      map[string]string
+		symbolSet analysis.SymbolSet
 	}{
 		{
 			name: "nested modules",
@@ -22,6 +23,7 @@ func TestDiscoverModuleBoundaries(t *testing.T) {
 				"parent.go":                    "package parent\nfunc Parent() {}\n",
 				"child/go.mod":                 "module example.com/child\ngo 1.24\n",
 				"child/child.go":               "package child\nfunc Child() {}\n",
+				"child/child_test.go":          "package child\nfunc TestChild() {}\n",
 				"child/grandchild/go.mod":      "module example.com/grandchild\ngo 1.24\n",
 				"child/grandchild/cmd/main.go": "package main\nfunc main() {}\n",
 				"childish/regular.go":          "package childish\nfunc Regular() {}\n",
@@ -35,6 +37,22 @@ func TestDiscoverModuleBoundaries(t *testing.T) {
 				"child/child.go":               "example.com/child",
 				"child/grandchild/cmd/main.go": "example.com/grandchild/cmd",
 				"childish/regular.go":          "example.com/parent/childish",
+			},
+		},
+		{
+			name:      "nested module test files",
+			symbolSet: analysis.Test,
+			files: map[string]string{
+				"go.mod":              "module example.com/parent\ngo 1.24\n",
+				"parent.go":           "package parent\nfunc Parent() {}\n",
+				"child/go.mod":        "module example.com/child\ngo 1.24\n",
+				"child/child.go":      "package child\nfunc Child() {}\n",
+				"child/child_test.go": "package child\nfunc TestChild() {}\n",
+			},
+			want: map[string]string{
+				"parent.go":           "example.com/parent",
+				"child/child.go":      "example.com/child",
+				"child/child_test.go": "example.com/child",
 			},
 		},
 		{
@@ -69,14 +87,17 @@ func TestDiscoverModuleBoundaries(t *testing.T) {
 			root := t.TempDir()
 			for name, content := range tc.files {
 				path := filepath.Join(root, filepath.FromSlash(name))
-				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 					t.Fatal(err)
 				}
 				if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 					t.Fatal(err)
 				}
 			}
-			w, err := analysis.Discover(context.Background(), analysis.Options{Dir: root})
+			w, err := analysis.Discover(context.Background(), analysis.Options{
+				Dir:       root,
+				SymbolSet: tc.symbolSet,
+			})
 			if err != nil {
 				t.Fatal(err)
 			}

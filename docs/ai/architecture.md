@@ -145,7 +145,7 @@ target parse、module 系列、symbol set、build context、locator、source mod
 - `array_identity_test.go`: 配列要素の alias・定義型の区別、pointer・ネスト配列。
 - `interface_regression_test.go`: 埋め込み method、pointer method set、遮蔽、曖昧さ。
 - `discovery_test.go`: version 限定 replace の適用条件・優先順位・置換先系列。
-- `module_discovery_test.go`: 多段の nested module、親 module に source がない構成、root に module がない構成での file 所属・重複排除、対象外 directory の除外。
+- `module_discovery_test.go`: 多段の nested module、親 module に source がない構成、root に module がない構成での file 所属・重複排除、対象外 directory の除外、子 module のテストファイルの選択と所属。
 - `engine_review_test.go`: 混在する call site の経路保持、無関係な300関数の詳細解析抑制。
 - `e2e_test.go`: 互換・非互換の両方を JSON に残し、正常経路の上位 caller を保持。
 
