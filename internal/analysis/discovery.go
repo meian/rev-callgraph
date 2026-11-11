@@ -45,17 +45,19 @@ func Discover(ctx context.Context, options Options) (*Workspace, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := discoverSources(ctx, root, w, modDirs, options); err != nil {
-		return nil, err
+	for module := range w.Modules {
+		if err := discoverSources(ctx, w, module, modDirs, options); err != nil {
+			return nil, err
+		}
 	}
+	buildPackages(w)
 	return w, nil
 }
 
-// discoverModules はソースをパッケージに割り当てる前に、所属モジュールを決める。
-// そのため、入れ子の go.mod は常に親の go.mod より優先される。
-func discoverModules(ctx context.Context, root string) (*Workspace, map[string]int, error) {
+// discoverModules は Go ソースを読まずにモジュールと探索境界を収集する。
+func discoverModules(ctx context.Context, root string) (*Workspace, map[string]bool, error) {
 	w := &Workspace{}
-	modDirs := make(map[string]int)
+	modDirs := make(map[string]bool)
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -99,7 +101,7 @@ func discoverModules(ctx context.Context, root string) (*Workspace, map[string]i
 				NewVersion: replace.New.Version,
 			})
 		}
-		modDirs[m.Dir] = len(w.Modules)
+		modDirs[m.Dir] = true
 		w.Modules = append(w.Modules, m)
 		return nil
 	})
@@ -113,9 +115,11 @@ func discoverModules(ctx context.Context, root string) (*Workspace, map[string]i
 	return w, modDirs, nil
 }
 
-// discoverSources は対象ファイルの場所とパッケージの識別情報を記録する。
+// discoverSources は一つのモジュール内だけで対象ファイルの場所とパッケージの宣言名を記録する。
+// 入れ子のモジュールは、そのモジュール自身の探索に委ねる。
 // package/import ヘッダーだけを読み、ファイルのトークンは後で NewLocator が索引化する。
-func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map[string]int, options Options) error {
+func discoverSources(ctx context.Context, w *Workspace, module int, modDirs map[string]bool, options Options) error {
+	root := w.Modules[module].Dir
 	buildContext := build.Default
 	if options.Build.GOOS != "" {
 		buildContext.GOOS = options.Build.GOOS
@@ -137,7 +141,7 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 			return walkErr
 		}
 		if entry.IsDir() {
-			if path != root && (entry.Name() == ".git" || entry.Name() == "vendor") {
+			if path != root && (modDirs[path] || entry.Name() == ".git" || entry.Name() == "vendor") {
 				return filepath.SkipDir
 			}
 			return nil
@@ -147,15 +151,6 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		}
 		test := strings.HasSuffix(entry.Name(), "_test.go")
 		if test && options.SymbolSet != Test {
-			return nil
-		}
-		module := -1
-		for dir, index := range modDirs {
-			if pathWithin(dir, path) && (module < 0 || len(dir) > len(w.Modules[module].Dir)) {
-				module = index
-			}
-		}
-		if module < 0 {
 			return nil
 		}
 		matches, err := buildContext.MatchFile(filepath.Dir(path), entry.Name())
@@ -193,9 +188,11 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		})
 		return nil
 	})
-	if err != nil {
-		return err
-	}
+	return err
+}
+
+// buildPackages は発見済みの全モジュールのソースから所属と import 対応を組み立てる。
+func buildPackages(w *Workspace) {
 	// 通常の宣言名を先に確認し、名前が _test で終わる通常 package の internal test を区別する。
 	regularNames := map[string]string{}
 	for _, source := range w.Sources {
@@ -282,18 +279,12 @@ func discoverSources(ctx context.Context, root string, w *Workspace, modDirs map
 		index := packageIndex[i]
 		w.Packages[index].Sources = append(w.Packages[index].Sources, *source)
 	}
-	return nil
 }
 
 // packageIdentity は同一解析内で package を識別する内部キーを返す。
 // import path は公開シンボルの識別子として残し、同じ path を持つ別ディレクトリや外部テストをここで区別する。
 func packageIdentity(path, dir string, module int, externalTest bool) string {
 	return path + "\x00" + dir + "\x00" + strconv.Itoa(module) + "\x00" + strconv.FormatBool(externalTest)
-}
-
-func pathWithin(dir, path string) bool {
-	rel, err := filepath.Rel(dir, path)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func assignModuleSeries(w *Workspace) {

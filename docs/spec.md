@@ -4,7 +4,10 @@ rev-callgraph は指定した関数・メソッドへ到達する呼び出し元
 
 ## 解析対象
 
-`--dir` 以下の `go.mod` を再帰的に発見し、各 source を最も内側の module に所属させます。`vendor` と `.git` は走査しません。nested module は親 module から独立して扱います。
+`--dir` 以下の `go.mod` を再帰的に発見し、各 module 内で source を探索します。
+nested module の directory では親の探索を止め、その内側は nested module 自身の探索で扱います。
+各 source は最も内側の module に所属し、`vendor` と `.git` は走査しません。
+現段階では全 module の対象 source を収集し、依存関係による読み込みの絞り込みは行いません。
 
 module 系列は、module path の `/v2` 以降の suffix または `gopkg.in` の `.vN` を優先します。それがなければ、ワークスペース内の `require` version の major から一意に推定します。local `replace` で指された module もその対象です。発見済みの置換先は import の解決にも反映します。version 限定の `replace` は選択中の `require` version に一致するときだけ適用し、全 version 向けの指定より優先します。置換先 version が指定されている場合は、その major を系列判定に用います。同じ major なら minor・patch 差は許容します。`v0` と `v1` は異なる系列です。参照が無い場合や `v0` と `v1` の要求が混在する場合など、系列を一意に決められない module は不明として扱い、系列が必要な module 間接続を推測しません。系列は API 互換性の保証ではありません。
 

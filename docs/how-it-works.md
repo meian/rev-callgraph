@@ -25,8 +25,11 @@
 ```mermaid
 flowchart TD
     Input[起点の関数を指定] --> Modules[全モジュールと依存情報を収集]
-    Modules --> Files[対象ファイルを列挙し所属を紐付け]
-    Files --> Index[対象ファイル全体の索引を作成]
+    Modules --> Module{未探索のモジュールはあるか}
+    Module -->|ある| Files[そのモジュール内の対象ファイルを列挙]
+    Files --> Module
+    Module -->|ない| Packages[ファイルの所属と import 対応を構築]
+    Packages --> Index[対象ファイル全体の索引を作成]
     Index --> Root[起点の定義候補を詳細解析]
     Root --> Unique{起点の定義を一意に選べるか}
     Unique -->|複数の定義| Error[所在地付きの曖昧性エラーを返す]
@@ -45,6 +48,8 @@ flowchart TD
 ```
 
 - **準備**：`go.mod` の依存・置換情報を読み、対象ファイルを所属モジュール・パッケージへ紐付けます。
+  各モジュール内でファイルを探し、入れ子の別モジュールのディレクトリでは走査を止めます。
+  その内側は、別モジュール自身の探索で扱います。
   OS・CPU・テストを含むかの条件で対象を絞ります。
 - **探索**：名前で候補を探し、実際の呼び先を照合します。
   必要な関数・型の定義が別ファイルにあれば追加解析して、照合・判定へ戻ります。
@@ -54,6 +59,7 @@ flowchart TD
   既に追加した呼び出し元は結果に残し、他の経路を続けます。
 
 現行実装では、モジュールとファイルの所属は最初に収集します。
+全モジュールのファイルを読むため、この分離だけで総読み込み量は減りません。
 ターゲットが変わるたびに所属モジュールを発見し直したり、そのパッケージ全体を初めて読み込んだりする構成ではありません。
 図は正常処理の概略で、深さ制限は候補取得前、循環・非互換・解析対象外の判定は呼び出し元の追加後に行います。
 
@@ -174,7 +180,9 @@ flowchart TD
 
 | 処理 | 実装 |
 | --- | --- |
-| モジュール・ファイルの収集と索引 | [discovery.go](../internal/analysis/discovery.go) の `Discover`・`NewLocator` |
+| モジュールの収集 | [discovery.go](../internal/analysis/discovery.go) の `Discover`・`discoverModules` |
+| モジュール内のファイル収集と package 構築 | 同ファイルの `discoverSources`・`buildPackages` |
+| 対象ファイルの索引 | 同ファイルの `NewLocator` |
 | 呼び出し元を次の対象にする探索 | [engine.go](../internal/analysis/engine.go) の `AnalyzeWithPolicy` 内の `visit` |
 | 候補の選別 | 同ファイルの `callersFor`・`callerCandidates` |
 | 定義の追加解析 | 同ファイルの `definitions`・`load` |
