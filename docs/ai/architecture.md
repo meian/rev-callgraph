@@ -36,7 +36,9 @@
 
 ## 境界と流れ
 
-`cmd` は入力・flag の検証、`analysis.Options` の構築、`output.Write` の呼び出しだけを担当する。主要な処理は `analysis.Analyze(ctx, target, options)` で CLI なしに実行できる。
+`cmd` は入力・flag の検証、`analysis.Options` の構築、`output.Write` の呼び出しを担当する。
+`--version` は Cobra が引数の検証前に処理し、`cmd/version.go` が Go のビルド情報と `releaseVersion` から組み立てた値を表示する。
+主要な解析処理は `analysis.Analyze(ctx, target, options)` で CLI なしに実行できる。
 
 ```text
 CLI -> Discover (module 発見 -> module ごとの source 列挙 -> package 構築)

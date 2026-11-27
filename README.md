@@ -8,6 +8,7 @@ Go 1.27 以降で実行します。
 
 ```bash
 go install github.com/meian/rev-callgraph@latest
+rev-callgraph --version
 ```
 
 ## 使い方

@@ -10,6 +10,18 @@ import (
 	"testing"
 )
 
+func TestCLIVersion(t *testing.T) {
+	cmd := exec.Command("go", "run", "-buildvcs=false", "-ldflags=-X github.com/meian/rev-callgraph/cmd.releaseVersion=v1.2.3", ".", "--version")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("version CLI: %v, stderr: %s", err, stderr.String())
+	}
+	if got, want := stdout.String(), "v1.2.3 (revision: unknown)\n"; got != want || stderr.Len() != 0 {
+		t.Fatalf("version CLI: stdout=%q, want %q, stderr=%q", got, want, stderr.String())
+	}
+}
+
 func TestE2E(t *testing.T) {
 	// rev-callgraph CLIをgo runで実行
 	cmd := exec.Command("go", "run", ".", "github.com/meian/rev-callgraph/testdata/foo.Target", "--dir", "testdata", "--format", "json", "--json-style", "edges")
