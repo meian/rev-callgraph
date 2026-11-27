@@ -40,7 +40,11 @@ go version -m -json ./rev-callgraph
 
 リリース CI は前処理の後に `git status --porcelain --untracked-files=all` の出力が空であることを確認してからビルドします。
 ビルド後は `go version -m -json` の結果から `vcs=git`、`vcs.revision` と対象コミットの一致、`vcs.modified=false` を必須とします。
-リリース CI の実装と配布物の SHA-256 の公開は [#68](https://github.com/meian/rev-callgraph/issues/68) で扱います。
+
+[`Release` workflow](../.github/workflows/release.yml) は `v1.2.3` のような `v<数字>.<数字>.<数字>` 形式のタグを新規 push すると起動し、タグ名をリリースバージョンとして埋め込みます。
+5 環境向けの配布物と `SHA256SUMS` を添付して GitHub Release を公開します。
+同じタグで再実行しても、公開済みの Release があれば作成は失敗し、既存の添付ファイルを保持します。
+配布物を修正するときは新しいバージョンのタグを使います。
 
 `--version` と `go version -m` は、バイナリに記録されたビルド情報を示します。
 配布物の同一性は、ダウンロードしたバイナリまたはアーカイブそのものの SHA-256 を GitHub Release の掲載値と照合して確認します。

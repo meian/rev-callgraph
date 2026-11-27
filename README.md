@@ -4,7 +4,46 @@ Go の関数やメソッドを起点に、ワークスペース内の呼び出�
 
 ## インストール
 
-Go 1.27 以降で実行します。
+### 配布バイナリを使う
+
+[GitHub Releases](https://github.com/meian/rev-callgraph/releases) で使いたいバージョンを開き、次の表から選んだファイルと `SHA256SUMS` を同じディレクトリにダウンロードします。
+
+| OS | CPU | ファイル |
+| --- | --- | --- |
+| Linux | x86-64 | `rev-callgraph-linux-amd64` |
+| Linux | ARM64 | `rev-callgraph-linux-arm64` |
+| macOS | Intel | `rev-callgraph-darwin-amd64` |
+| macOS | Apple Silicon | `rev-callgraph-darwin-arm64` |
+| Windows | x64 | `rev-callgraph-windows-amd64.zip` |
+
+ダウンロード先で次のコマンドを実行し、表示された SHA-256 が `SHA256SUMS` の同じファイル名の値と一致することを確認します。
+`<ファイル名>` は表から選んだ名前に置き換えます。
+
+| OS | SHA-256 の確認コマンド |
+| --- | --- |
+| Linux | `sha256sum <ファイル名>` |
+| macOS | `shasum -a 256 <ファイル名>` |
+| Windows（PowerShell） | `Get-FileHash <ファイル名> -Algorithm SHA256` |
+
+Linux・macOS では、実行権限を付けて `PATH` の通ったディレクトリに配置します。
+次は `~/.local/bin` を使う例です。
+
+```sh
+mkdir -p "$HOME/.local/bin"
+install -m 755 <ファイル名> "$HOME/.local/bin/rev-callgraph"
+"$HOME/.local/bin/rev-callgraph" --version
+```
+
+Windows では、照合済みの ZIP を PowerShell で展開して実行します。
+
+```powershell
+Expand-Archive rev-callgraph-windows-amd64.zip -DestinationPath rev-callgraph
+.\rev-callgraph\rev-callgraph.exe --version
+```
+
+### Go でインストールする
+
+Go 1.27.4 以降を使います。
 
 ```bash
 go install github.com/meian/rev-callgraph@latest
