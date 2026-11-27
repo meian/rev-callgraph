@@ -27,6 +27,7 @@ func newRootCommand() *cobra.Command {
 		Use:           "rev-callgraph <target>",
 		Short:         "逆方向コールグラフ生成ツール",
 		Long:          "Goコードの逆方向コールグラフを生成するCLIツールです。",
+		Version:       version(),
 		Args:          cobra.ExactArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -62,6 +63,7 @@ func newRootCommand() *cobra.Command {
 			return output.Write(command.OutOrStdout(), result, format, jsonStyle)
 		},
 	}
+	command.SetVersionTemplate("{{.Version}}\n")
 	command.Flags().StringVar(&dir, "dir", ".", "解析するワークスペースのルートディレクトリ")
 	command.Flags().StringVar(&format, "format", "tree", "出力形式: json|tree|dot")
 	command.Flags().StringVar(&jsonStyle, "json-style", "nested", "json出力スタイル: nested|edges")

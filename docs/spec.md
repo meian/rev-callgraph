@@ -2,6 +2,49 @@
 
 rev-callgraph は指定した関数・メソッドへ到達する呼び出し元を逆向きにたどります。target は関数が `<package>.<FuncName>`、メソッドが `<package>.<TypeName>#<MethodName>` です。対象 symbol の定義が現在の source に無くても、呼び出し元を示せる場合はその target を起点にします。
 
+## バージョン表示
+
+`rev-callgraph --version` はターゲットなしで実行でき、バージョンを標準出力へ一行表示して終了コード `0` で終了します。
+解析は実行しません。
+
+表示する値はビルド時に指定したリリースバージョン、`vcs.revision`、有効な `BuildInfo.Main.Version`、`unknown` の順に選びます。
+`(devel)` はモジュールバージョンの候補から除外します。
+コミットハッシュは表示時に先頭 12 桁へ短縮し、`vcs.modified=true` の場合は `-dirty` を付けます。
+
+| ビルド情報 | 表示例 |
+| --- | --- |
+| リリースバージョンとコミットあり | `v1.2.3 (abcdef012345)` |
+| リリースバージョンとコミットあり、作業ツリーに変更あり | `v1.2.3 (abcdef012345-dirty)` |
+| コミットあり | `abcdef012345` |
+| コミットあり、作業ツリーに変更あり | `abcdef012345-dirty` |
+| リリースバージョンあり、コミットなし | `v1.2.3 (revision: unknown)` |
+| 有効なモジュールバージョンのみ | `v1.2.3` |
+| 表示できる情報なし | `unknown` |
+
+### ビルド時のバージョン指定
+
+通常の `go build` は Go 標準の VCS 情報埋め込みを使います。
+`go run` でコミット情報を表示するには `-buildvcs=true` を指定します。
+リリースバージョンは `go build` と `go run` のどちらでも `-ldflags -X` で指定できます。
+
+```bash
+go run -buildvcs=true -ldflags='-X github.com/meian/rev-callgraph/cmd.releaseVersion=v1.2.3' . --version
+```
+
+リリース用バイナリは Git の checkout で、リポジトリのルートからビルドします。
+
+```bash
+go build -buildvcs=true -trimpath -ldflags='-X github.com/meian/rev-callgraph/cmd.releaseVersion=v1.2.3' .
+go version -m -json ./rev-callgraph
+```
+
+リリース CI は前処理の後に `git status --porcelain --untracked-files=all` の出力が空であることを確認してからビルドします。
+ビルド後は `go version -m -json` の結果から `vcs=git`、`vcs.revision` と対象コミットの一致、`vcs.modified=false` を必須とします。
+リリース CI の実装と配布物の SHA-256 の公開は [#68](https://github.com/meian/rev-callgraph/issues/68) で扱います。
+
+`--version` と `go version -m` は、バイナリに記録されたビルド情報を示します。
+配布物の同一性は、ダウンロードしたバイナリまたはアーカイブそのものの SHA-256 を GitHub Release の掲載値と照合して確認します。
+
 ## 解析対象
 
 `--dir` 以下の `go.mod` を再帰的に発見し、各 module 内で source を探索します。

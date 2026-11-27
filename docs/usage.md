@@ -21,6 +21,7 @@ rev-callgraph github.com/meian/rev-callgraph/testdata/foo.SomeStruct#Method --di
 | `--symbol-set` | `runtime` | `runtime` または `test` |
 | `--goos` | 実行環境 | 対象 GOOS |
 | `--goarch` | 実行環境 | 対象 GOARCH |
+| `--version` | `false` | バージョンを表示して終了。ターゲットの指定は不要 |
 
 `--symbol-set test` は通常の source に加えて `*_test.go` と external test package を含みます。`--goos` と `--goarch` は対象 build context の選択で、symbol set とは独立しています。
 
@@ -43,5 +44,14 @@ rev-callgraph example.com/app.Target --dir ./workspace --max-depth 2 --progress
 ```
 
 tree は起点から呼び出し元を字下げして表示します。JSON `nested` は `name` と `callers` の木、JSON `edges` は `root`、`nodes`、`edges` の集合です。DOT は `caller -> callee` の有向辺を出力します。通常の解決済みで互換な辺は付加情報を省き、それ以外は resolution と compatibility を表示します。同じ caller に互換・非互換の呼び出しが混在する場合は、判定ごとに辺や木の枝を分けて表示します。詳細は [仕様](spec.md) を参照してください。
+
+## バージョンの確認
+
+```bash
+rev-callgraph --version
+```
+
+ソースから実行する場合は、リポジトリのルートで `go run -buildvcs=true . --version` を実行するとコミット情報を表示できます。
+表示形式とビルド時にバージョンを指定する方法は [仕様](spec.md#バージョン表示) を参照してください。
 
 機能を変更するときは、実装・テスト・この文書・[仕様](spec.md)・[AI 向け設計](ai/architecture.md) を同じ変更内で更新します。
